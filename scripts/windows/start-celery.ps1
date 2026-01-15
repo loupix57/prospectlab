@@ -38,7 +38,9 @@ if (Test-Path ".env") {
 }
 
 Write-Host ""
-Write-Host "Démarrage de Celery worker..." -ForegroundColor Yellow
+Write-Host "Démarrage de Celery worker avec Beat (tâches périodiques)..." -ForegroundColor Yellow
+Write-Host "  - Worker: exécute les tâches asynchrones" -ForegroundColor Cyan
+Write-Host "  - Beat: exécute les tâches périodiques (nettoyage toutes les heures)" -ForegroundColor Cyan
 Write-Host "Appuyez sur Ctrl+C pour arrêter Celery" -ForegroundColor Cyan
 Write-Host ""
 
@@ -48,7 +50,8 @@ Write-Host ""
 # if (Test-Path "logs\*.log") { Remove-Item "logs\*.log" -Force; Write-Host "Tous les logs effacés" -ForegroundColor Yellow }
 
 Write-Host "Logs disponibles dans le dossier: logs\" -ForegroundColor Cyan
-Write-Host "  - celery.log : Logs du worker Celery" -ForegroundColor Gray
+Write-Host "  - celery_worker.log : Logs du worker Celery" -ForegroundColor Gray
+Write-Host "  - celery_beat.log : Logs du beat scheduler (tâches périodiques)" -ForegroundColor Gray
 Write-Host "  - prospectlab.log : Logs de l'application Flask" -ForegroundColor Gray
 Write-Host "  - *.log : Logs des différentes tâches" -ForegroundColor Gray
 Write-Host ""
@@ -61,7 +64,7 @@ $condaPath = Get-Command conda -ErrorAction SilentlyContinue
 if (-not $condaPath) {
     Write-Host "ERREUR: Conda n'est pas trouvé dans le PATH" -ForegroundColor Red
     Write-Host "Activez manuellement l'environnement conda puis lancez:" -ForegroundColor Yellow
-    Write-Host "  celery -A celery_app worker --loglevel=info" -ForegroundColor Cyan
+    Write-Host "  celery -A celery_app worker --loglevel=info --beat" -ForegroundColor Cyan
     exit 1
 }
 
@@ -105,7 +108,7 @@ if (Test-Path "run_celery.py") {
     Write-Host ""
     
     try {
-        & conda run -n $condaEnv celery -A celery_app worker --loglevel=info --pool=solo
+        & conda run -n $condaEnv celery -A celery_app worker --loglevel=info --pool=solo --beat
     } catch {
         Write-Host "`nCelery arrêté." -ForegroundColor Yellow
     } finally {

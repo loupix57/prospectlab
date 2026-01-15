@@ -177,14 +177,21 @@ def download_file(filename):
         filename (str): Nom du fichier à télécharger
         
     Returns:
-        Response: Fichier en téléchargement ou redirection
+        Response: Fichier en téléchargement ou redirection avec message d'erreur
     """
+    from flask import render_template
+    
     filepath = os.path.join(EXPORT_FOLDER, filename)
     if os.path.exists(filepath):
         return send_file(filepath, as_attachment=True)
     else:
-        flash('Fichier introuvable', 'error')
-        return redirect(url_for('main.index'))
+        # Fichier introuvable - afficher une page d'erreur avec message clair
+        flash('Le fichier exporté n\'existe plus. Il a peut-être été supprimé automatiquement après 6 heures.', 'error')
+        return render_template('error.html', 
+                             error_title='Fichier introuvable',
+                             error_message=f'Le fichier "{filename}" n\'a pas été trouvé dans les exports.',
+                             error_details='Les fichiers exportés sont automatiquement supprimés après 6 heures pour libérer de l\'espace. Veuillez relancer l\'analyse pour générer un nouvel export.',
+                             back_url=url_for('main.index'))
 
 
 @other_bp.route('/api/templates')

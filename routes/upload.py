@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
+import pandas as pd
 from services.entreprise_analyzer import EntrepriseAnalyzer
 from utils.helpers import allowed_file, get_file_path
 from config import UPLOAD_FOLDER
@@ -79,21 +80,28 @@ def preview_file(filename):
         filename (str): Nom du fichier à prévisualiser
         
     Returns:
-        str: Template HTML de la prévisualisation
+        str: Template HTML de la prévisualisation ou page d'erreur
     """
     try:
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         
         if not os.path.exists(filepath):
-            flash('Fichier introuvable', 'error')
-            return redirect(url_for('upload.upload_file'))
+            # Fichier upload introuvable
+            return render_template('error.html',
+                                 error_title='Fichier introuvable',
+                                 error_message=f'Le fichier "{filename}" n\'a pas été trouvé.',
+                                 error_details='Le fichier uploadé a peut-être été supprimé automatiquement après 6 heures pour libérer de l\'espace. Veuillez réimporter votre fichier Excel.',
+                                 back_url=url_for('upload.upload_file'))
         
         analyzer = EntrepriseAnalyzer(excel_file=filepath)
         df = analyzer.load_excel()
         
         if df is None or df.empty:
-            flash('Erreur lors de la lecture du fichier Excel', 'error')
-            return redirect(url_for('upload.upload_file'))
+            return render_template('error.html',
+                                 error_title='Erreur de lecture',
+                                 error_message='Impossible de lire le fichier Excel.',
+                                 error_details='Le fichier est peut-être corrompu ou dans un format non supporté. Vérifiez que c\'est un fichier Excel valide (.xlsx ou .xls).',
+                                 back_url=url_for('upload.upload_file'))
         
         # Valider les lignes
         validation_warnings = []
@@ -111,9 +119,24 @@ def preview_file(filename):
                              columns=columns,
                              total_rows=len(df),
                              validation_warnings=validation_warnings[:10])
+    except pd.errors.EmptyDataError:
+        return render_template('error.html',
+                             error_title='Fichier vide',
+                             error_message='Le fichier Excel est vide.',
+                             error_details='Le fichier ne contient aucune donnée. Vérifiez que votre fichier Excel contient bien des données.',
+                             back_url=url_for('upload.upload_file'))
+    except pd.errors.ExcelFileError as e:
+        return render_template('error.html',
+                             error_title='Format de fichier invalide',
+                             error_message='Le fichier n\'est pas un fichier Excel valide.',
+                             error_details=f'Erreur technique: {str(e)}. Assurez-vous que le fichier est bien au format .xlsx ou .xls.',
+                             back_url=url_for('upload.upload_file'))
     except Exception as e:
-        flash(f'Erreur lors de la lecture du fichier: {str(e)}', 'error')
-        return redirect(url_for('upload.upload_file'))
+        return render_template('error.html',
+                             error_title='Erreur lors de la lecture',
+                             error_message=f'Une erreur est survenue lors de la lecture du fichier: {str(e)}',
+                             error_details='Vérifiez que le fichier n\'est pas corrompu et qu\'il est au bon format.',
+                             back_url=url_for('upload.upload_file'))
 
 
 @upload_bp.route('/api/upload', methods=['POST'])
@@ -139,27 +162,56 @@ def api_upload_file():
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             file.save(filepath)
             
-            # Lire le fichier Excel pour validation
+            # Lire le fichier Excel pour validation (avec gestion de progression)
             analyzer = EntrepriseAnalyzer(excel_file=filepath)
             df = analyzer.load_excel()
             
             if df is None or df.empty:
                 return jsonify({'error': 'Le fichier Excel est vide ou ne peut pas être lu'}), 400
             
-            # Compter les lignes valides
+            # Compter les lignes valides (optimisé pour les gros fichiers)
             valid_rows = 0
-            for idx, row in df.iterrows():
-                is_valid, _ = analyzer.validate_row(row, idx)
-                if is_valid:
-                    valid_rows += 1
+            total_rows = len(df)
+            validation_warnings = []
             
-            return jsonify({
+            # Valider par batch pour éviter de bloquer trop longtemps
+            batch_size = min(100, total_rows)
+            for batch_start in range(0, total_rows, batch_size):
+                batch_end = min(batch_start + batch_size, total_rows)
+                for idx in range(batch_start, batch_end):
+                    row = df.iloc[idx]
+                    is_valid, errors = analyzer.validate_row(row, idx)
+                    if is_valid:
+                        valid_rows += 1
+                    elif len(validation_warnings) < 10:  # Limiter les warnings
+                        validation_warnings.extend(errors[:2])
+            
+            # Préparer la prévisualisation directement ici pour éviter le double traitement
+            preview = df.head(10).to_dict('records')
+            columns = list(df.columns)
+            
+            # S'assurer que preview est sérialisable (convertir les NaN en None)
+            preview_serializable = []
+            for row in preview:
+                clean_row = {}
+                for key, value in row.items():
+                    if pd.isna(value):
+                        clean_row[key] = None
+                    else:
+                        clean_row[key] = value
+                preview_serializable.append(clean_row)
+            
+            response_data = {
                 'success': True,
                 'filename': filename,
-                'total_rows': len(df),
-                'valid_rows': valid_rows,
-                'columns': list(df.columns)
-            })
+                'total_rows': int(total_rows),
+                'valid_rows': int(valid_rows),
+                'columns': columns,
+                'preview': preview_serializable,
+                'validation_warnings': validation_warnings[:10]
+            }
+            
+            return jsonify(response_data)
         except Exception as e:
             return jsonify({'error': f'Erreur lors de la lecture du fichier: {str(e)}'}), 400
     

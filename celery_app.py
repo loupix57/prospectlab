@@ -49,6 +49,7 @@ celery.conf.update(
         'tasks.scraping_tasks',
         'tasks.technical_analysis_tasks',
         'tasks.email_tasks',
+        'tasks.cleanup_tasks',
     ),
     # Configuration pour Windows : utiliser solo au lieu de prefork
     # Le mode prefork n'est pas supporté sur Windows
@@ -58,6 +59,14 @@ celery.conf.update(
     worker_log_format='[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
     worker_task_log_format='[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s',
     worker_hijack_root_logger=False,  # Ne pas prendre le contrôle du root logger
+    # Configuration du beat scheduler pour les tâches périodiques
+    beat_schedule={
+        'cleanup-old-files': {
+            'task': 'cleanup.cleanup_old_files',
+            'schedule': 3600.0,  # Toutes les heures
+            'args': (6,)  # Supprimer les fichiers de plus de 6 heures
+        },
+    },
 )
 
 
