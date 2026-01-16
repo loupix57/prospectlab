@@ -43,7 +43,9 @@ Redis doit etre demarre avant Celery et Flask :
 redis-server
 ```
 
-### Celery Worker
+### Celery Worker et Beat
+
+Le script `start-celery.ps1` lance à la fois le worker Celery et le scheduler Celery Beat dans un seul processus (via `run_celery.py`).
 
 **Windows (PowerShell) :**
 ```powershell
@@ -185,6 +187,37 @@ Ces taches se trouvent egalement dans `tasks/technical_analysis_tasks.py` :
 - Analyse de securite (Pentest) d'un site web.
 - Parametres principaux : `url`, `entreprise_id`, `options` (scan_sql, scan_xss, etc.).
 
+### cleanup_tasks.py
+
+#### cleanup_old_files
+Tache periodique (via Celery Beat) qui supprime automatiquement les fichiers uploads et exports de plus de 6 heures.
+
+**Configuration :**
+- Executee toutes les heures via Celery Beat
+- Supprime les fichiers de plus de 6 heures (configurable via `max_age_hours`)
+- Logs detailles dans `logs/cleanup_tasks.log`
+
+**Configuration dans `celery_app.py` :**
+```python
+beat_schedule = {
+    'cleanup-old-files': {
+        'task': 'cleanup.cleanup_old_files',
+        'schedule': crontab(minute=0),  # Toutes les heures
+    },
+}
+```
+
+**Retour :**
+```python
+{
+    'success': True,
+    'deleted_count': 42,
+    'total_size_freed': 10485760,
+    'size_freed_mb': 10.0,
+    'max_age_hours': 6
+}
+```
+
 ## Suivi de progression
 
 ### Depuis Flask
@@ -247,6 +280,7 @@ Les logs par tache sont dans :
 - `logs/scraping_tasks.log`
 - `logs/email_tasks.log`
 - `logs/technical_analysis_tasks.log`
+- `logs/cleanup_tasks.log`
 
 ## Monitoring
 
@@ -324,6 +358,16 @@ pkill -f "celery worker"
 - Augmenter `worker_prefetch_multiplier`
 - Augmenter le nombre de workers
 - Optimiser les taches (moins de requetes HTTP, etc.)
+
+## Analyse technique multi-pages (20 max)
+
+- Les taches `technical_analysis_task` et la partie technique du scraper utilisent `TechnicalAnalyzer.analyze_site_overview`.
+- L'analyse reste passive (pas d'OSINT/pentest) et visite jusqu'a 20 pages internes (profondeur 2) pour agreger :
+  - un score global de securite (SSL/WAF/CDN + en-tetes rencontres),
+  - un score de performance leger (temps moyen, poids moyen),
+  - le nombre de trackers/analytics detectes,
+  - des details par page (statut, perf, securite, trackers).
+- Les resultats sont sauvegardes dans `analysis_technique_pages` + colonnes `pages_*` de `analyses_techniques`, et le score est reporte sur la fiche entreprise.
 
 ## Voir aussi
 

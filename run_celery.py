@@ -14,24 +14,72 @@ import subprocess
 import socket
 import uuid
 
+def kill_process_tree(pid):
+    """Tue un processus et tous ses enfants (Windows)"""
+    if sys.platform == 'win32':
+        # Utiliser taskkill pour tuer le processus et ses enfants
+        try:
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
+                         capture_output=True, timeout=5, check=False)
+        except:
+            # Si taskkill échoue, essayer de tuer directement
+            try:
+                os.kill(pid, 9)  # SIGKILL
+            except:
+                pass
+    else:
+        # Sur Linux/Mac, utiliser os.kill avec SIGTERM puis SIGKILL
+        try:
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(1)
+            os.kill(pid, signal.SIGKILL)
+        except:
+            pass
+
 def signal_handler(sig, frame):
     """Gère Ctrl+C proprement"""
     print('\n\n[!] Arrêt de Celery demandé...')
     # Arrêter les processus Celery si ils existent
     global celery_process, beat_process
+    
+    # Arrêter le beat
     if beat_process and beat_process.poll() is None:
-        beat_process.terminate()
+        print('  Arrêt du processus beat...')
         try:
+            beat_process.terminate()
             beat_process.wait(timeout=2)
         except subprocess.TimeoutExpired:
-            beat_process.kill()
+            print('  Force kill du processus beat...')
+            if sys.platform == 'win32':
+                kill_process_tree(beat_process.pid)
+            else:
+                beat_process.kill()
+        except:
+            if sys.platform == 'win32':
+                kill_process_tree(beat_process.pid)
+            else:
+                beat_process.kill()
+    
+    # Arrêter le worker
     if celery_process and celery_process.poll() is None:
-        celery_process.terminate()
+        print('  Arrêt du processus worker...')
         try:
+            celery_process.terminate()
             celery_process.wait(timeout=2)
         except subprocess.TimeoutExpired:
-            celery_process.kill()
-    # Arrêt forcé immédiat sur Windows
+            print('  Force kill du processus worker...')
+            if sys.platform == 'win32':
+                kill_process_tree(celery_process.pid)
+            else:
+                celery_process.kill()
+        except:
+            if sys.platform == 'win32':
+                kill_process_tree(celery_process.pid)
+            else:
+                celery_process.kill()
+    
+    print('  ✓ Tous les processus arrêtés')
+    # Arrêt forcé immédiat
     os._exit(0)
 
 # Variables globales pour les processus Celery
@@ -58,8 +106,15 @@ def run_celery_worker():
         celery_process.wait()
     except KeyboardInterrupt:
         print('\n\n[!] Arrêt de Celery worker...')
-        if celery_process:
-            celery_process.terminate()
+        if celery_process and celery_process.poll() is None:
+            try:
+                celery_process.terminate()
+                celery_process.wait(timeout=2)
+            except:
+                if sys.platform == 'win32':
+                    kill_process_tree(celery_process.pid)
+                else:
+                    celery_process.kill()
         os._exit(0)
     except Exception as e:
         print(f'Erreur lors du lancement de Celery worker: {e}')
@@ -83,8 +138,15 @@ def run_celery_beat():
         beat_process.wait()
     except KeyboardInterrupt:
         print('\n\n[!] Arrêt de Celery beat...')
-        if beat_process:
-            beat_process.terminate()
+        if beat_process and beat_process.poll() is None:
+            try:
+                beat_process.terminate()
+                beat_process.wait(timeout=2)
+            except:
+                if sys.platform == 'win32':
+                    kill_process_tree(beat_process.pid)
+                else:
+                    beat_process.kill()
         os._exit(0)
     except Exception as e:
         print(f'Erreur lors du lancement de Celery beat: {e}')
@@ -149,7 +211,8 @@ def main():
             beat_thread.join()
     except KeyboardInterrupt:
         print('\n\n[!] Arrêt de Celery...')
-        os._exit(0)
+        # Appeler le signal handler pour arrêter proprement
+        signal_handler(signal.SIGINT, None)
 
 if __name__ == '__main__':
     main()

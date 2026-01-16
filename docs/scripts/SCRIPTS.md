@@ -120,6 +120,91 @@ sudo bash scripts/linux/install_pentest_tools.sh
 
 **Durée :** Environ 15-20 minutes selon la connexion internet.
 
+### Scripts de nettoyage
+
+#### `clear_db.py` - Nettoyage de la base de données
+
+Script Python pour vider la base de données SQLite, soit complètement, soit certaines tables spécifiques.
+
+**Emplacement :** `scripts/clear_db.py`
+
+**Utilisation :**
+```bash
+# Afficher les statistiques de la base de données
+python scripts/clear_db.py
+
+# Vider toutes les tables (avec confirmation)
+python scripts/clear_db.py --clear
+
+# Vider toutes les tables (sans confirmation)
+python scripts/clear_db.py --clear --no-confirm
+
+# Vider uniquement certaines tables
+python scripts/clear_db.py --clear --tables entreprises analyses
+```
+
+**Avec PowerShell (wrapper) :**
+```powershell
+.\scripts\windows\clear-db.ps1 -Clear
+.\scripts\windows\clear-db.ps1 -Clear -NoConfirm
+```
+
+**Note :** Le script PowerShell active automatiquement l'environnement conda `prospectlab` et exécute le script Python directement.
+
+#### `clear_redis.py` - Nettoyage de Redis
+
+Script Python pour vider toutes les données Celery dans Redis (broker et backend).
+
+**Emplacement :** `scripts/clear_redis.py`
+
+**Prérequis :**
+- Redis démarré
+- Environnement conda prospectlab activé
+
+**Utilisation :**
+```bash
+python scripts/clear_redis.py
+```
+
+**Avec PowerShell (wrapper) :**
+```powershell
+.\scripts\windows\clear-redis.ps1
+```
+
+**Avertissement :** Cette opération supprime toutes les tâches en attente et les résultats en cache dans Redis.
+
+### Scripts de test
+
+#### `test_celery_tasks.py` - Test des tâches Celery
+
+Vérifie que toutes les tâches Celery sont correctement enregistrées.
+
+**Emplacement :** `scripts/test_celery_tasks.py`
+
+**Utilisation :**
+```bash
+python scripts/test_celery_tasks.py
+```
+
+**Résultat :** Affiche la liste de toutes les tâches enregistrées et vérifie les tâches principales (analysis, scraping, technical_analysis, email, cleanup).
+
+#### `test_redis_connection.py` - Test de la connexion Redis
+
+Vérifie que Redis est accessible et que Celery peut s'y connecter.
+
+**Emplacement :** `scripts/test_redis_connection.py`
+
+**Prérequis :**
+- Redis démarré
+- Environnement conda prospectlab activé
+
+**Utilisation :**
+```bash
+python scripts/test_redis_connection.py
+```
+
+**Résultat :** Affiche les informations de configuration Redis, teste la connexion et vérifie les workers Celery actifs.
+
 ## Configuration
 
 Les scripts utilisent les variables de configuration depuis `config.py` :

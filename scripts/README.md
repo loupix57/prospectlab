@@ -53,6 +53,38 @@ Arrête Redis dans WSL Ubuntu.
 .\scripts\windows\stop-redis-wsl.ps1
 ```
 
+### Celery
+
+#### `start-celery.ps1` - Démarre Celery (worker + beat)
+Démarre le worker Celery ET le scheduler Celery Beat dans un seul processus pour exécuter les tâches asynchrones et les tâches périodiques (comme le nettoyage automatique).
+
+**Prérequis :**
+- Redis démarré
+- Environnement conda prospectlab activé
+
+**Utilisation :**
+```powershell
+.\scripts\windows\start-celery.ps1
+```
+
+**Note :** Ce script lance à la fois le worker Celery et Celery Beat pour gérer les tâches périodiques (nettoyage automatique toutes les heures).
+
+#### `stop-celery.ps1` - Arrête Celery
+Arrête tous les processus Celery (worker et beat).
+
+**Utilisation :**
+```powershell
+.\scripts\windows\stop-celery.ps1
+```
+
+#### `check-celery.ps1` - Vérifie l'état de Celery
+Affiche l'état des processus Celery (worker et beat) et les tâches en cours.
+
+**Utilisation :**
+```powershell
+.\scripts\windows\check-celery.ps1
+```
+
 ### Tests
 
 #### `test-wsl-tools.ps1` - Teste les outils OSINT et Pentest
@@ -103,6 +135,8 @@ Affiche les informations de configuration Redis, teste la connexion et vérifie 
 #### `clear_db.py` - Nettoie la base de données
 Vide toutes les tables de la base de données ou uniquement certaines tables spécifiques.
 
+**Emplacement :** `scripts/clear_db.py`
+
 **Utilisation :**
 ```bash
 # Afficher les statistiques
@@ -118,8 +152,16 @@ python scripts/clear_db.py --clear --no-confirm
 python scripts/clear_db.py --clear --tables entreprises analyses
 ```
 
+**Avec PowerShell (wrapper) :**
+```powershell
+.\scripts\windows\clear-db.ps1 -Clear
+.\scripts\windows\clear-db.ps1 -Clear -NoConfirm
+```
+
 #### `clear_redis.py` - Nettoie Redis
 Vide toutes les données Celery dans Redis (broker et backend).
+
+**Emplacement :** `scripts/clear_redis.py`
 
 **Prérequis :**
 - Redis démarré
@@ -129,7 +171,7 @@ Vide toutes les données Celery dans Redis (broker et backend).
 python scripts/clear_redis.py
 ```
 
-**Avec PowerShell :**
+**Avec PowerShell (wrapper) :**
 ```powershell
 .\scripts\windows\clear-redis.ps1
 ```

@@ -659,6 +659,260 @@ class TechnicalAnalyzer:
         
         return None
     
+    def _normalize_base_url(self, url):
+        """
+        Normalise une URL et retourne (base_url, netloc).
+        """
+        parsed = urlparse(url if url.startswith(('http://', 'https://')) else f'https://{url}')
+        scheme = parsed.scheme or 'https'
+        netloc = parsed.netloc or parsed.path.split('/')[0]
+        base_url = f'{scheme}://{netloc}'
+        return base_url, netloc
+
+    def _is_internal_link(self, href, base_netloc):
+        """Vérifie qu'un lien reste sur le même domaine."""
+        if not href:
+            return False
+        parsed = urlparse(href)
+        if parsed.netloc and parsed.netloc not in (base_netloc, f'www.{base_netloc}'):
+            return False
+        if parsed.scheme and parsed.scheme not in ('http', 'https'):
+            return False
+        return True
+
+    def _extract_internal_links(self, soup, current_url, base_netloc, max_links=50):
+        """Extrait les liens internes d'une page HTML."""
+        links = set()
+        if not soup:
+            return links
+        from urllib.parse import urljoin
+        for link in soup.find_all('a', href=True):
+            href = link.get('href')
+            if not href or href.startswith('#'):
+                continue
+            if self._is_internal_link(href, base_netloc):
+                absolute = urljoin(current_url, href)
+                links.add(absolute.split('#')[0])
+            if len(links) >= max_links:
+                break
+        return links
+
+    def _compute_page_security_score(self, security_headers):
+        """Calcule un mini-score de sécurité pour une page (0-25)."""
+        if not security_headers or not isinstance(security_headers, dict):
+            return 0
+        important_headers = [
+            'content-security-policy',
+            'strict-transport-security',
+            'x-frame-options',
+            'x-content-type-options',
+            'referrer-policy'
+        ]
+        score = 0
+        for header in important_headers:
+            if security_headers.get(header) or security_headers.get(header.replace('-', '_')):
+                score += 5
+        return min(25, score)
+
+    def _compute_page_performance_score(self, response, content_length):
+        """Calcule un score de performance léger par page (0-100)."""
+        score = 100
+        ttfb_ms = int(response.elapsed.total_seconds() * 1000) if response and response.elapsed else None
+        if ttfb_ms:
+            if ttfb_ms > 2000:
+                score -= 25
+            elif ttfb_ms > 1200:
+                score -= 15
+            elif ttfb_ms > 800:
+                score -= 8
+        if content_length:
+            if content_length > 1500000:
+                score -= 25
+            elif content_length > 800000:
+                score -= 15
+            elif content_length > 400000:
+                score -= 8
+        compression = response.headers.get('Content-Encoding') if response else None
+        if not compression or compression.lower() in ('identity', 'none'):
+            score -= 5
+        cache_control = response.headers.get('Cache-Control', '') if response else ''
+        if cache_control and ('no-cache' in cache_control or 'no-store' in cache_control):
+            score -= 5
+        return max(0, min(100, score))
+
+    def _compute_global_security_score(self, base_data, headers_presence):
+        """
+        Calcule un score global de sécurité (0-100) en combinant SSL/WAF/CDN + headers rencontrés.
+        """
+        score = 0
+        if base_data.get('ssl_valid'):
+            score += 40
+        if base_data.get('waf'):
+            score += 25
+        if base_data.get('cdn'):
+            score += 10
+        important = {
+            'content-security-policy',
+            'strict-transport-security',
+            'x-frame-options',
+            'x-content-type-options',
+            'referrer-policy'
+        }
+        headers_found = 0
+        for header in important:
+            if header in headers_presence:
+                headers_found += 1
+        score += min(headers_found * 5, 25)
+        return max(0, min(100, score))
+
+    def analyze_site_multipage(self, url, max_pages=20, max_depth=2, request_timeout=10):
+        """
+        Analyse technique légère sur plusieurs pages (passive, sans pentest).
+
+        Args:
+            url (str): URL de départ.
+            max_pages (int): Nombre maximum de pages à visiter.
+            max_depth (int): Profondeur maximale de crawl.
+            request_timeout (int): Timeout par requête HTTP en secondes.
+        """
+        base_url, base_netloc = self._normalize_base_url(url)
+        to_visit = [(base_url, 0)]
+        visited = set()
+        pages = []
+        headers_presence = set()
+        total_trackers = 0
+        total_resp_time = []
+        total_weights = []
+
+        while to_visit and len(pages) < max_pages:
+            current_url, depth = to_visit.pop(0)
+            if current_url in visited:
+                continue
+            visited.add(current_url)
+
+            try:
+                response = requests.get(
+                    current_url,
+                    headers=self.headers,
+                    timeout=request_timeout,
+                    allow_redirects=True
+                )
+                status_code = response.status_code
+                final_url = response.url
+                content_type = response.headers.get('Content-Type', '')
+                content_length = len(response.content or b'')
+                total_resp_time.append(int(response.elapsed.total_seconds() * 1000) if response.elapsed else 0)
+                total_weights.append(content_length)
+
+                soup = None
+                html_content = None
+                if 'text/html' in content_type:
+                    html_content = response.text
+                    soup = BeautifulSoup(html_content, 'html.parser')
+
+                security_headers = analyze_security_headers(response.headers)
+                for key in security_headers.keys():
+                    if key in ('security_score', 'security_level'):
+                        continue
+                    headers_presence.add(key.replace('_', '-'))
+                page_security_score = self._compute_page_security_score(security_headers)
+
+                analytics = []
+                if soup and html_content:
+                    analytics = self._detect_analytics(soup, html_content) or []
+                total_trackers += len(analytics or [])
+
+                page_perf_score = self._compute_page_performance_score(response, content_length)
+
+                pages.append({
+                    'url': current_url,
+                    'final_url': final_url,
+                    'status_code': status_code,
+                    'content_type': content_type,
+                    'title': soup.title.get_text(strip=True)[:120] if soup and soup.title else None,
+                    'response_time_ms': int(response.elapsed.total_seconds() * 1000) if response.elapsed else None,
+                    'content_length': content_length,
+                    'security_headers': security_headers,
+                    'security_score': page_security_score,
+                    'performance_score': page_perf_score,
+                    'analytics': analytics,
+                    'trackers_count': len(analytics or [])
+                })
+
+                if soup and depth < max_depth:
+                    links = self._extract_internal_links(soup, final_url or current_url, base_netloc)
+                    for link in links:
+                        if link not in visited and len(to_visit) + len(pages) < max_pages * 2:
+                            to_visit.append((link, depth + 1))
+
+            except Exception as err:
+                pages.append({
+                    'url': current_url,
+                    'status_code': None,
+                    'error': str(err)[:200],
+                    'security_score': 0,
+                    'performance_score': 0,
+                    'trackers_count': 0
+                })
+
+        pages_ok = len([p for p in pages if p.get('status_code') and 200 <= p['status_code'] < 400])
+        pages_error = len([p for p in pages if not p.get('status_code') or p['status_code'] >= 400])
+
+        avg_resp = int(sum(total_resp_time) / len(total_resp_time)) if total_resp_time else None
+        avg_weight = int(sum(total_weights) / len(total_weights)) if total_weights else None
+
+        summary = {
+            'pages_scanned': len(pages),
+            'pages_ok': pages_ok,
+            'pages_error': pages_error,
+            'headers_presence': list(headers_presence),
+            'avg_response_time_ms': avg_resp,
+            'avg_weight_bytes': avg_weight,
+            'trackers_count': total_trackers,
+            'security_score': None,
+            'performance_score': None
+        }
+
+        return {
+            'pages': pages,
+            'summary': summary,
+            'headers_presence': headers_presence
+        }
+
+    def analyze_site_overview(self, url, max_pages=20, max_depth=2, enable_nmap=False):
+        """
+        Analyse complète: page principale + multi-pages léger, avec scoring global.
+        """
+        base_results = self.analyze_technical_details(url, enable_nmap=enable_nmap)
+        multipage = self.analyze_site_multipage(url, max_pages=max_pages, max_depth=max_depth)
+
+        summary = multipage.get('summary', {})
+        headers_presence = multipage.get('headers_presence', set())
+        security_score = self._compute_global_security_score(base_results, headers_presence)
+
+        page_perfs = [p.get('performance_score') for p in multipage.get('pages', []) if p.get('performance_score') is not None]
+        performance_score = int(sum(page_perfs) / len(page_perfs)) if page_perfs else None
+
+        summary['security_score'] = security_score
+        summary['performance_score'] = performance_score
+        summary['pages_count'] = summary.get('pages_scanned')
+        summary['trackers_count'] = summary.get('trackers_count', 0)
+
+        base_results['pages'] = multipage.get('pages', [])
+        base_results['pages_summary'] = summary
+        base_results['security_score'] = security_score
+        base_results['performance_score'] = performance_score
+        base_results['pages_count'] = summary.get('pages_count')
+        base_results['trackers_count'] = summary.get('trackers_count')
+
+        return base_results
+
+    def analyze(self, url, max_pages=20, max_depth=2, enable_nmap=False):
+        """
+        Alias de compatibilité pour l'analyse technique complète.
+        """
+        return self.analyze_site_overview(url, max_pages=max_pages, max_depth=max_depth, enable_nmap=enable_nmap)
+    
     def analyze_technical_details(self, url, enable_nmap=False):
         """Analyse technique complète et approfondie d'un site web
         

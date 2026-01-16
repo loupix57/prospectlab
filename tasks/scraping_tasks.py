@@ -22,17 +22,27 @@ def _safe_update_state(task, task_id, **kwargs):
     Met à jour l'état d'une tâche Celery seulement si un task_id est disponible.
     
     Args:
-        task: Instance de la tâche Celery
-        task_id: ID connu de la tâche
-        **kwargs: Arguments passés à update_state
+        task: Instance de la tâche Celery (bindée avec bind=True)
+        task_id: ID connu de la tâche (optionnel, utilisé pour vérification)
+        **kwargs: Arguments passés à update_state (state, meta, etc.)
     """
     try:
-        effective_id = getattr(task.request, 'id', None) or task_id
-        if not effective_id:
+        # Pour une tâche bindée, task.request.id devrait être disponible
+        # Si ce n'est pas le cas, on essaie avec task_id en paramètre
+        if hasattr(task, 'request') and hasattr(task.request, 'id') and task.request.id:
+            # La tâche est bindée et a un ID, on peut utiliser update_state directement
+            task.update_state(**kwargs)
+        elif task_id:
+            # On a un task_id en paramètre, on peut quand même essayer
+            task.update_state(**kwargs)
+        else:
+            # Pas de task_id disponible, on ne peut pas mettre à jour l'état
+            # On ne log pas pour éviter de polluer les logs
             return
-        task.update_state(task_id=effective_id, **kwargs)
     except Exception as exc:
-        logger.warning(f'update_state impossible: {exc}')
+        # Ne log que si ce n'est pas une erreur de task_id vide
+        if 'task_id' not in str(exc).lower() and 'empty' not in str(exc).lower():
+            logger.warning(f'update_state impossible: {exc}')
 
 
 @celery.task(bind=True)
@@ -140,8 +150,8 @@ def scrape_emails_task(self, url, max_depth=3, max_workers=5, max_time=300,
 
 
 @celery.task(bind=True)
-def scrape_analysis_task(self, analysis_id: int, max_depth: int = 3, max_workers: int = 5,
-                         max_time: int = 300, max_pages: int = 50) -> Dict:
+def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers: int = 5,
+                         max_time: int = 180, max_pages: int = 30) -> Dict:
     """
     Tâche Celery pour scraper automatiquement toutes les entreprises d'une analyse.
     
@@ -325,6 +335,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 3, max_workers
                     technologies=results.get('technologies'),
                     metadata=metadata_value,
                     images=results.get('images'),
+                    forms=results.get('forms'),
                     visited_urls=visited_urls_count,
                     total_emails=results.get('total_emails', 0),
                     total_people=results.get('total_people', 0),
@@ -333,6 +344,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 3, max_workers
                     total_technologies=results.get('total_technologies', 0),
                     total_metadata=metadata_total,
                     total_images=results.get('total_images', 0),
+                    total_forms=results.get('total_forms', 0),
                     duration=results.get('duration', 0)
                 )
                 logger.info(
@@ -419,154 +431,6 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 3, max_workers
                     logger.error(f'Erreur lors de la mise à jour de l\'entreprise {entreprise_id} (resume/logo/favicon/og_data): {e}', exc_info=True)
             except Exception as e:
                 logger.warning(f'Erreur lors de la sauvegarde du scraper (analyse {analysis_id}, entreprise {entreprise_id}): {e}')
-
-            # Analyse technique (dans la même tâche Celery, en parallèle "logique" du scraping)
-            # Objectif: avoir l'affichage sous le bloc scraping sur la preview Excel
-            try:
-                from services.technical_analyzer import TechnicalAnalyzer
-
-                logger.info(
-                    f'[Tech Analyse {analysis_id}] {current_index}/{total} - {entreprise_name} ({website_str}) - démarrage analyse technique'
-                )
-
-                update_progress(
-                    f'Analyse technique: initialisation',
-                    current_index,
-                    entreprise_name,
-                    website_str,
-                    global_stats,
-                    extra_meta={
-                        'technical_message': 'Initialisation de l\'analyse technique...',
-                        'technical_progress': 5,
-                        'technical_current': current_index,
-                        'technical_total': total
-                    }
-                )
-
-                analyzer = TechnicalAnalyzer()
-
-                logger.info(
-                    f'[Tech Analyse {analysis_id}] {current_index}/{total} - {entreprise_name} ({website_str}) - collecte des informations techniques'
-                )
-
-                update_progress(
-                    f'Analyse technique: collecte des infos serveur',
-                    current_index,
-                    entreprise_name,
-                    website_str,
-                    global_stats,
-                    extra_meta={
-                        'technical_message': 'Récupération des informations du serveur...',
-                        'technical_progress': 20,
-                        'technical_current': current_index,
-                        'technical_total': total
-                    }
-                )
-
-                tech_data = analyzer.analyze_technical_details(website_str, enable_nmap=False)
-
-                logger.info(
-                    f'[Tech Analyse {analysis_id}] {current_index}/{total} - {entreprise_name} ({website_str}) - analyse terminée, préparation du résumé'
-                )
-
-                # Résumé léger pour l'UI (lisible, sans noyer l'écran)
-                try:
-                    def _short(v):
-                        if v is None:
-                            return None
-                        s = str(v).strip()
-                        return s if s else None
-
-                    summary = {}
-                    summary['server'] = _short(tech_data.get('server_software'))
-                    summary['framework'] = _short(tech_data.get('framework'))
-                    summary['cms'] = _short(tech_data.get('cms'))
-                    summary['hosting'] = _short(tech_data.get('hosting_provider'))
-                    if tech_data.get('ssl_valid') is not None:
-                        summary['ssl'] = 'OK' if tech_data.get('ssl_valid') else 'KO'
-                    if tech_data.get('waf'):
-                        summary['waf'] = _short(tech_data.get('waf'))
-                    if tech_data.get('cdn'):
-                        summary['cdn'] = _short(tech_data.get('cdn'))
-
-                    analytics = tech_data.get('analytics') or []
-                    if isinstance(analytics, list) and analytics:
-                        summary['analytics'] = f'{len(analytics)} outil(s)'
-
-                    security_headers = tech_data.get('security_headers') or {}
-                    if isinstance(security_headers, dict) and security_headers:
-                        summary['headers'] = f'{len(security_headers)} header(s)'
-                except Exception:
-                    summary = None
-
-                if summary:
-                    logger.info(
-                        f'[Tech Analyse {analysis_id}] {current_index}/{total} - {entreprise_name} ({website_str}) - '
-                        f'résumé: serveur={summary.get("server")}, framework={summary.get("framework")}, '
-                        f'cms={summary.get("cms")}, ssl={summary.get("ssl")}, waf={summary.get("waf")}, '
-                        f'cdn={summary.get("cdn")}, analytics={summary.get("analytics")}, headers={summary.get("headers")}'
-                    )
-
-                    update_progress(
-                        f'Analyse technique: sauvegarde',
-                        current_index,
-                        entreprise_name,
-                        website_str,
-                        global_stats,
-                        extra_meta={
-                            'technical_message': 'Sauvegarde des résultats...',
-                            'technical_progress': 85,
-                            'technical_current': current_index,
-                            'technical_total': total,
-                            'technical_summary': summary
-                        }
-                    )
-
-                    try:
-                        db_tech = Database()
-                        tech_analysis_id = db_tech.save_technical_analysis(entreprise_id, website_str, tech_data)
-                        logger.info(
-                            f'[Tech Analyse {analysis_id}] Analyse technique sauvegardée (id={tech_analysis_id}) '
-                            f'pour entreprise {entreprise_id} ({entreprise_name}) - {website_str}'
-                        )
-                    except Exception as save_err:
-                        logger.warning(
-                            f'[Tech Analyse {analysis_id}] Erreur sauvegarde analyse technique '
-                            f'(entreprise {entreprise_id}, {website_str}): {save_err}'
-                        )
-
-                    update_progress(
-                        f'Analyse technique terminée pour {entreprise_name}',
-                        current_index,
-                        entreprise_name,
-                        website_str,
-                        global_stats,
-                        extra_meta={
-                            'technical_message': 'Analyse technique terminée',
-                            'technical_progress': 100,
-                            'technical_current': current_index,
-                            'technical_total': total,
-                            'technical_summary': summary
-                        }
-                    )
-            except Exception as tech_err:
-                logger.warning(
-                    f'[Tech Analyse {analysis_id}] Erreur analyse technique pour {entreprise_name} ({website_str}): {tech_err}',
-                    exc_info=True
-                )
-                update_progress(
-                    f'Analyse technique: erreur pour {entreprise_name}',
-                    current_index,
-                    entreprise_name,
-                    website_str,
-                    global_stats,
-                    extra_meta={
-                        'technical_message': f'Erreur analyse technique: {str(tech_err)}',
-                        'technical_progress': 100,
-                        'technical_current': current_index,
-                        'technical_total': total
-                    }
-                )
             
             # Mettre à jour les stats globales à partir des résultats finaux
             global_stats['total_emails'] += results.get('total_emails', 0)

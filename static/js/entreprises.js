@@ -755,30 +755,24 @@
                     
                     <!-- Onglet Résultats scraping -->
                     <div class="tab-panel" id="tab-scraping">
-                        <div class="scraping-actions">
-                            <h3>Analyse du site web</h3>
-                            <p style="color: #666; margin-bottom: 1rem;">Analyse complète du site web : emails, personnes, téléphones, réseaux sociaux, technologies et métadonnées</p>
-                            <div class="scraping-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div class="scraping-actions" style="margin-bottom: 1.5rem;">
+                            <div class="scraping-buttons" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; background: #f8fafc; padding: 0.75rem; border-radius: 10px; border: 1px solid #e5e7eb;">
                                 ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-scraping" data-id="${entreprise.id}" data-url="${entreprise.website}">
-                                    🔍 Lancer l'analyse scraping
-                                </button>
-                                <button class="btn btn-danger btn-stop-scraping" data-id="${entreprise.id}" style="display: none;">
-                                    ⏹️ Arrêter
+                                <button class="btn btn-primary btn-launch-scraping" data-id="${entreprise.id}" data-url="${entreprise.website}" style="min-width: 220px; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    🔍 Relancer l'analyse scraping
                                 </button>
                                 ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
-                            </div>
-                            
-                            <div id="scraping-status" class="scraping-status" style="margin-top: 1rem; display: none;"></div>
-                            <div id="scraping-progress" class="scraping-progress" style="margin-top: 1rem; display: none;">
-                                <div class="progress-bar-container" style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                    <div id="scraping-progress-bar" class="progress-bar" style="height: 100%; background: #3498db; width: 0%; transition: width 0.3s;"></div>
+                                <div id="scraping-progress" class="scraping-progress" style="flex:1; min-width:220px; display: none; align-items:center; gap:0.5rem;">
+                                    <div class="progress-bar-container" style="flex:1; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
+                                        <div id="scraping-progress-bar" class="progress-bar" style="height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); width: 0%; transition: width 0.25s;"></div>
+                                    </div>
+                                    <span id="scraping-progress-text" style="font-size: 0.9rem; color: #4b5563;">En attente</span>
                                 </div>
-                                <p id="scraping-progress-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></p>
                             </div>
+                            <div id="scraping-status" class="scraping-status" style="margin-top: 0.75rem; display: none;"></div>
                         </div>
                         
-                        <div id="scraping-results" class="scraping-results" style="margin-top: 2rem; display: block;">
+                        <div id="scraping-results" class="scraping-results" style="display: block;">
                             <h3>Résultats de l'analyse</h3>
                             
                             <div class="results-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e9ecef; flex-wrap: wrap;">
@@ -818,27 +812,20 @@
                     
                     <!-- Onglet Analyse technique -->
                     <div class="tab-panel" id="tab-technique">
-                        <div class="analysis-actions">
-                            <h3>Analyse technique</h3>
-                            <p style="color: #666; margin-bottom: 1rem;">Analyse approfondie de l'infrastructure technique : serveurs, frameworks, CMS, sécurité, performance</p>
-                            <div class="analysis-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div class="analysis-actions" style="margin-bottom: 1.5rem;">
+                            <div class="analysis-buttons" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; background: #f8fafc; padding: 0.75rem; border-radius: 10px; border: 1px solid #e5e7eb;">
                                 ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-technique" data-id="${entreprise.id}" data-url="${entreprise.website}">
-                                    🔍 Lancer l'analyse technique
-                                </button>
-                                <button class="btn btn-danger btn-stop-technique" data-id="${entreprise.id}" style="display: none;">
-                                    ⏹️ Arrêter
+                                <button class="btn btn-primary btn-launch-technique" data-id="${entreprise.id}" data-url="${entreprise.website}" style="min-width: 240px; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    🚀 Relancer l'analyse technique
                                 </button>
                                 ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
-                            </div>
-                            
-                            <div id="technique-progress" class="analysis-progress" style="margin-top: 1rem; display: none;">
-                                <div class="progress-bar-container" style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                    <div id="technique-progress-bar" class="progress-bar" style="height: 100%; background: #3498db; width: 0%; transition: width 0.3s;"></div>
+                                <div id="technique-progress" class="analysis-progress" style="flex:1; min-width:240px; display: none; align-items:center; gap:0.5rem;">
+                                    <div class="progress-bar-container" style="flex:1; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
+                                        <div id="technique-progress-bar" class="progress-bar" style="height: 100%; background: linear-gradient(90deg, #667eea, #38bdf8); width: 0%; transition: width 0.25s;"></div>
+                                    </div>
+                                    <span id="technique-progress-text" style="font-size: 0.9rem; color: #4b5563;">En attente</span>
                                 </div>
-                                <p id="technique-progress-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></p>
                             </div>
-                            
                         </div>
                         
                         <div id="technique-results" class="analysis-results" style="margin-top: 2rem;">
@@ -980,6 +967,43 @@
         const idAttr = id ? ` id="${id}"` : '';
         return `<span${idAttr} class="badge badge-${info.className}">${info.label}</span>`;
     }
+
+    /**
+     * Calcule un badge de performance simple (0-100).
+     * @param {number|null|undefined} score
+     * @returns {{label: string, className: string}}
+     */
+    function getPerformanceScoreInfo(score) {
+        if (score === null || score === undefined || Number.isNaN(Number(score))) {
+            return { label: 'Non analysé', className: 'secondary' };
+        }
+        const s = Math.max(0, Math.min(100, Number(score)));
+        if (s >= 80) return { label: `${s}/100 (Rapide)`, className: 'success' };
+        if (s >= 50) return { label: `${s}/100 (Moyen)`, className: 'warning' };
+        return { label: `${s}/100 (Lent)`, className: 'danger' };
+    }
+
+    /**
+     * Génère un badge HTML pour le score de perf.
+     * @param {number|null|undefined} score
+     * @returns {string}
+     */
+    function getPerformanceScoreBadge(score) {
+        const info = getPerformanceScoreInfo(score);
+        return `<span class="badge badge-${info.className}">${info.label}</span>`;
+    }
+
+    function formatMs(ms) {
+        if (!ms && ms !== 0) return 'N/A';
+        return `${ms} ms`;
+    }
+
+    function formatBytesShort(bytes) {
+        if (!bytes && bytes !== 0) return 'N/A';
+        const kb = bytes / 1024;
+        if (kb < 1024) return `${kb.toFixed(1)} Ko`;
+        return `${(kb / 1024).toFixed(2)} Mo`;
+    }
     
     function getStatusBadge(statut) {
         if (!statut) return '';
@@ -1106,11 +1130,6 @@
                     const entrepriseId = btn.getAttribute('data-id');
                     const url = btn.getAttribute('data-url');
                     await launchScraping(entrepriseId, url);
-                }
-                if (e.target.closest('.btn-stop-scraping')) {
-                    if (window.wsManager && window.wsManager.socket) {
-                        window.wsManager.socket.emit('stop_scraping');
-                    }
                 }
                 // Gestion des onglets
                 if (e.target.closest('.tab-button')) {
@@ -1430,7 +1449,6 @@
         const progressBar = document.getElementById('scraping-progress-bar');
         const progressText = document.getElementById('scraping-progress-text');
         const btn = document.querySelector('.btn-launch-scraping');
-        const btnStop = document.querySelector('.btn-stop-scraping');
         
         if (!window.wsManager || !window.wsManager.socket) {
             showNotification('WebSocket non connecté', 'error');
@@ -1438,17 +1456,15 @@
         }
         
         try {
-            btn.disabled = true;
-            btn.style.display = 'none';
-            if (btnStop) {
-                btnStop.style.display = 'inline-block';
+            if (btn) {
+                btn.disabled = true;
             }
             if (statusDiv) {
                 statusDiv.style.display = 'block';
                 statusDiv.innerHTML = '<div class="status-info">Lancement de l\'analyse...</div>';
             }
             if (progressDiv) {
-                progressDiv.style.display = 'block';
+                progressDiv.style.display = 'flex';
             }
             
             // Réinitialiser les listes
@@ -1475,6 +1491,13 @@
             
             // Écouter les événements
             const socket = window.wsManager.socket;
+            if (socket && socket.off) {
+                socket.off('scraping_started');
+                socket.off('scraping_progress');
+                socket.off('scraping_complete');
+                socket.off('scraping_stopped');
+                socket.off('scraping_error');
+            }
             
             socket.on('scraping_started', (data) => {
                 if (statusDiv) {
@@ -1567,12 +1590,7 @@
                 } catch (e) {
                     console.error('Erreur lors de l\'affichage des images de scraping:', e);
                 }
-                // Cacher le bouton stop et réafficher le bouton start
-                btn.style.display = 'inline-block';
-                btn.disabled = false;
-                if (btnStop) {
-                    btnStop.style.display = 'none';
-                }
+                if (btn) btn.disabled = false;
                 
                 // Ne pas recharger depuis la base car on a déjà les données en temps réel
                 // Les données sont déjà affichées via displayAllScrapingResults
@@ -1585,12 +1603,7 @@
                 if (progressBar) progressBar.style.width = '0%';
                 if (progressText) progressText.textContent = 'Arrêté';
                 
-                // Cacher le bouton stop et réafficher le bouton start
-                btn.style.display = 'inline-block';
-                btn.disabled = false;
-                if (btnStop) {
-                    btnStop.style.display = 'none';
-                }
+                if (btn) btn.disabled = false;
             });
             
             socket.on('scraping_error', (data) => {
@@ -1598,12 +1611,7 @@
                     statusDiv.innerHTML = `<div class="status-error">Erreur: ${data.error || 'Erreur inconnue'}</div>`;
                 }
                 
-                // Cacher le bouton stop et réafficher le bouton start
-                btn.style.display = 'inline-block';
-                btn.disabled = false;
-                if (btnStop) {
-                    btnStop.style.display = 'none';
-                }
+                if (btn) btn.disabled = false;
                 showNotification('Erreur lors du lancement de l\'analyse', 'error');
             });
             
@@ -2239,7 +2247,6 @@
         }
         
         const btn = document.querySelector('.btn-launch-technique');
-        const btnStop = document.querySelector('.btn-stop-technique');
         const progressDiv = document.getElementById('technique-progress');
         const progressBar = document.getElementById('technique-progress-bar');
         const progressText = document.getElementById('technique-progress-text');
@@ -2249,11 +2256,20 @@
         }
         
         try {
-            btn.style.display = 'none';
-            if (btnStop) btnStop.style.display = 'inline-block';
-            if (progressDiv) progressDiv.style.display = 'block';
+            if (btn) btn.disabled = true;
+            if (progressDiv) {
+                progressDiv.style.display = 'flex';
+                if (progressBar) progressBar.style.width = '5%';
+                if (progressText) progressText.textContent = 'Démarrage...';
+            }
             
             const socket = window.wsManager.socket;
+            if (socket && socket.off) {
+                socket.off('technical_analysis_progress');
+                socket.off('technical_analysis_complete');
+                socket.off('technical_analysis_stopped');
+                socket.off('technical_analysis_error');
+            }
             
             // Listeners WebSocket
             socket.on('technical_analysis_progress', (data) => {
@@ -2265,8 +2281,7 @@
                 if (progressBar) progressBar.style.width = '100%';
                 if (progressText) progressText.textContent = 'Analyse terminée';
                 
-                btn.style.display = 'inline-block';
-                if (btnStop) btnStop.style.display = 'none';
+                if (btn) btn.disabled = false;
                 
                 // Recharger les résultats
                 loadTechnicalAnalysis(entrepriseId);
@@ -2275,14 +2290,12 @@
             socket.on('technical_analysis_stopped', (data) => {
                 if (progressBar) progressBar.style.width = '0%';
                 if (progressText) progressText.textContent = 'Arrêté';
-                btn.style.display = 'inline-block';
-                if (btnStop) btnStop.style.display = 'none';
+                if (btn) btn.disabled = false;
             });
             
             socket.on('technical_analysis_error', (data) => {
                 if (progressText) progressText.textContent = `Erreur: ${data.error || 'Erreur inconnue'}`;
-                btn.style.display = 'inline-block';
-                if (btnStop) btnStop.style.display = 'none';
+                if (btn) btn.disabled = false;
                 showNotification('Erreur lors de l\'analyse technique', 'error');
             });
             
@@ -2295,8 +2308,7 @@
         } catch (error) {
             console.error('Erreur lors du lancement de l\'analyse technique:', error);
             if (progressText) progressText.textContent = `Erreur: ${error.message}`;
-            btn.style.display = 'inline-block';
-            if (btnStop) btnStop.style.display = 'none';
+            if (btn) btn.disabled = false;
             showNotification('Erreur lors du lancement de l\'analyse', 'error');
         }
     }
@@ -2463,39 +2475,51 @@
         const analyticsCount = analysis.analytics && Array.isArray(analysis.analytics) ? analysis.analytics.length : 0;
         const analyticsLabel = analyticsCount > 0 ? `${analyticsCount} outil(s)` : 'Aucun outil détecté';
         
-        // Calcul d'un score global de securite simple (0-100)
-        let securityScore = 0;
-        if (analysis.ssl_valid) {
-            securityScore += 40;
-        }
-        if (analysis.waf) {
-            securityScore += 25;
-        }
-        if (analysis.cdn) {
-            securityScore += 10;
-        }
-        if (analysis.security_headers && typeof analysis.security_headers === 'object' && !Array.isArray(analysis.security_headers)) {
-            const headers = analysis.security_headers;
-            const importantHeaders = [
-                'Content-Security-Policy',
-                'Strict-Transport-Security',
-                'X-Frame-Options',
-                'X-Content-Type-Options',
-                'Referrer-Policy'
-            ];
-            let count = 0;
-            importantHeaders.forEach(name => {
-                if (headers[name]) {
-                    count += 1;
-                }
-            });
-            securityScore += Math.min(count * 5, 25);
-        }
-        if (securityScore > 100) {
-            securityScore = 100;
+        const pagesSummary = analysis.pages_summary || {};
+        const pagesList = Array.isArray(analysis.pages) ? analysis.pages : [];
+        const perfScore = typeof analysis.performance_score === 'number'
+            ? analysis.performance_score
+            : (pagesSummary.performance_score !== undefined ? pagesSummary.performance_score : null);
+
+        // Score global sécurité: priorité au calcul backend, sinon fallback local
+        let securityScore = typeof analysis.security_score === 'number'
+            ? analysis.security_score
+            : (pagesSummary.security_score !== undefined ? pagesSummary.security_score : null);
+
+        if (securityScore === null || securityScore === undefined) {
+            securityScore = 0;
+            if (analysis.ssl_valid) {
+                securityScore += 40;
+            }
+            if (analysis.waf) {
+                securityScore += 25;
+            }
+            if (analysis.cdn) {
+                securityScore += 10;
+            }
+            if (analysis.security_headers && typeof analysis.security_headers === 'object' && !Array.isArray(analysis.security_headers)) {
+                const headers = analysis.security_headers;
+                const importantHeaders = [
+                    'Content-Security-Policy',
+                    'Strict-Transport-Security',
+                    'X-Frame-Options',
+                    'X-Content-Type-Options',
+                    'Referrer-Policy'
+                ];
+                let count = 0;
+                importantHeaders.forEach(name => {
+                    if (headers[name]) {
+                        count += 1;
+                    }
+                });
+                securityScore += Math.min(count * 5, 25);
+            }
+            if (securityScore > 100) {
+                securityScore = 100;
+            }
         }
         const securityInfo = getSecurityScoreInfo(securityScore);
-        
+
         let html = `
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- En-tête avec informations générales -->
@@ -2538,6 +2562,65 @@
                         </div>
                     </div>
                 </div>
+                
+                ${(() => {
+                    const pagesCount = pagesSummary.pages_count || pagesSummary.pages_scanned || pagesList.length || 0;
+                    if (!pagesCount) return '';
+                    const pagesOk = pagesSummary.pages_ok || 0;
+                    const pagesError = pagesSummary.pages_error || 0;
+                    const trackersCount = pagesSummary.trackers_count || analysis.trackers_count || 0;
+                    const avgResp = pagesSummary.avg_response_time_ms ? formatMs(pagesSummary.avg_response_time_ms) : 'N/A';
+                    const avgWeight = pagesSummary.avg_weight_bytes ? formatBytesShort(pagesSummary.avg_weight_bytes) : 'N/A';
+                    const perfBadge = getPerformanceScoreBadge(perfScore);
+
+                    const rows = pagesList.slice(0, 20).map(page => {
+                        const pageSecBadge = getSecurityScoreBadge(page.security_score);
+                        const pagePerfBadge = getPerformanceScoreBadge(page.performance_score);
+                        const statusLabel = page.status_code ? page.status_code : 'N/A';
+                        return `
+                            <tr>
+                                <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis;">
+                                    <a href="${page.final_url || page.url}" target="_blank" rel="noopener">${page.url || 'Page'}</a>
+                                </td>
+                                <td>${statusLabel}</td>
+                                <td>${pageSecBadge}</td>
+                                <td>${pagePerfBadge}</td>
+                                <td>${page.trackers_count || 0}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="detail-section" style="padding: 1rem; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            <h3 style="margin: 0 0 0.75rem 0; color: #1f2937;">🛰️ Analyse multi-pages (${pagesCount} page${pagesCount > 1 ? 's' : ''})</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
+                                <div><strong>Score sécurité:</strong> ${getSecurityScoreBadge(securityScore)}</div>
+                                <div><strong>Score perf:</strong> ${perfBadge}</div>
+                                <div><strong>Pages OK/Erreur:</strong> <span class="badge badge-success">${pagesOk}</span> / <span class="badge badge-danger">${pagesError}</span></div>
+                                <div><strong>Trackers trouvés:</strong> <span class="badge badge-info">${trackersCount}</span></div>
+                                <div><strong>Temps moyen:</strong> ${avgResp}</div>
+                                <div><strong>Poids moyen:</strong> ${avgWeight}</div>
+                            </div>
+                            ${rows ? `
+                            <div style="overflow-x: auto;">
+                                <table class="table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
+                                            <th style="padding: 0.5rem 0.25rem;">Page</th>
+                                            <th style="padding: 0.5rem 0.25rem;">Statut</th>
+                                            <th style="padding: 0.5rem 0.25rem;">Sécurité</th>
+                                            <th style="padding: 0.5rem 0.25rem;">Perf</th>
+                                            <th style="padding: 0.5rem 0.25rem;">Trackers</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>` : ''}
+                        </div>
+                    `;
+                })()}
                 
                 <!-- Serveur et infrastructure -->
                 <div class="detail-section">

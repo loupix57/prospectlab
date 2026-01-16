@@ -13,6 +13,8 @@ Application Flask professionnelle pour la prospection et l'analyse approfondie d
 - **Envoi d'emails de prospection** : Campagnes personnalisées avec modèles réutilisables
 - **Suivi en temps réel** : WebSocket pour suivre la progression des analyses et scraping
 - **Base de données normalisée** : Stockage structuré avec OpenGraph, images, et métadonnées
+- **Nettoyage automatique** : Suppression automatique des fichiers uploads/exports anciens (via Celery Beat)
+- **Logs centralisés** : Système de logs détaillés avec rotation automatique pour chaque type de tâche
 
 ## Installation
 
@@ -71,7 +73,7 @@ pip install -r requirements.txt
 
 5. Lancer l'application :
 ```bash
-python app_new.py
+python app.py
 ```
 
 L'application sera accessible sur http://localhost:5000
@@ -142,7 +144,7 @@ L'application sera accessible sur http://localhost:5000
 
 ```
 prospectlab/
-├── app_new.py             # Application Flask principale (architecture moderne)
+├── app.py                 # Application Flask principale (architecture moderne)
 ├── celery_app.py          # Configuration Celery pour les tâches asynchrones
 ├── run_celery.py          # Wrapper pour lancer Celery avec gestion Ctrl+C
 ├── config.py              # Configuration centralisée
@@ -166,8 +168,9 @@ prospectlab/
 ├── tasks/                 # Tâches Celery (opérations asynchrones)
 │   ├── analysis_tasks.py  # Analyse d'entreprises depuis Excel
 │   ├── scraping_tasks.py  # Scraping complet (emails, personnes, phones, etc.)
+│   ├── technical_analysis_tasks.py  # Analyses techniques (standard + avancée)
 │   ├── email_tasks.py     # Envoi d'emails en masse
-│   └── technical_analysis_tasks.py  # Analyses techniques (standard + avancée)
+│   └── cleanup_tasks.py   # Nettoyage automatique des fichiers anciens (Celery Beat)
 ├── services/              # Services métier (logique métier)
 │   ├── database.py        # Gestion base de données (ORM simplifié)
 │   ├── entreprise_analyzer.py  # Analyse d'entreprises
@@ -183,12 +186,19 @@ prospectlab/
 ├── scripts/               # Scripts utilitaires
 │   ├── windows/           # Scripts PowerShell (Windows)
 │   │   ├── start-redis.ps1      # Démarrer Redis (Docker)
-│   │   ├── start-celery.ps1     # Démarrer Celery
+│   │   ├── start-redis-wsl.ps1  # Démarrer Redis (WSL)
+│   │   ├── start-celery.ps1     # Démarrer Celery (worker + beat)
 │   │   ├── stop-redis.ps1       # Arrêter Redis
-│   │   └── stop-celery.ps1      # Arrêter Celery
-│   └── linux/             # Scripts Bash (Linux)
-│       ├── install_osint_tools.sh   # Installer outils OSINT
-│       └── install_pentest_tools.sh # Installer outils Pentest
+│   │   ├── stop-celery.ps1      # Arrêter Celery
+│   │   ├── clear-db.ps1         # Vider la base de données
+│   │   └── clear-redis.ps1      # Vider Redis
+│   ├── linux/             # Scripts Bash (Linux)
+│   │   ├── install_osint_tools.sh   # Installer outils OSINT
+│   │   └── install_pentest_tools.sh # Installer outils Pentest
+│   ├── clear_db.py        # Script Python pour vider la BDD
+│   ├── clear_redis.py     # Script Python pour vider Redis
+│   ├── test_celery_tasks.py    # Tester l'enregistrement des tâches Celery
+│   └── test_redis_connection.py # Tester la connexion Redis
 ├── templates/             # Templates HTML (Jinja2)
 ├── static/                # Ressources statiques
 │   ├── css/               # Feuilles de style
@@ -231,8 +241,12 @@ L'application utilise une architecture moderne et modulaire :
 ### Logs centralisés
 Tous les logs sont centralisés dans le dossier `logs/` avec rotation automatique :
 - Logs Flask : `prospectlab.log`
-- Logs Celery : `celery.log`
-- Logs par tâche : `analysis_tasks.log`, `scraping_tasks.log`, etc.
+- Logs par tâche : `analysis_tasks.log`, `scraping_tasks.log`, `technical_analysis_tasks.log`, `cleanup_tasks.log`, `email_tasks.log`
+
+Chaque type de tâche a son propre fichier de log pour faciliter le débogage et le suivi.
+
+### Nettoyage automatique
+Un script Celery Beat s'exécute automatiquement toutes les heures pour supprimer les fichiers uploads et exports de plus de 6 heures. Cette tâche est configurée dans `celery_app.py` et s'exécute via `cleanup.cleanup_old_files`.
 
 Pour plus de détails, voir [la documentation de l'architecture](docs/architecture/ARCHITECTURE.md).
 

@@ -173,7 +173,7 @@ def analyze_entreprise_task(self, filepath, output_path, max_workers=3, delay=2.
                                 'current': self.current_index,
                                 'total': self.total,
                                 'percentage': percentage,
-                                'message': f'Analyse de {row.get("name", "entreprise")} ({percentage}%)'
+                                'message': f'Analyse de {row.get("name", "entreprise")}'
                             }
                         )
                     except Exception as e:

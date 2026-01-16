@@ -35,40 +35,77 @@ def technical_analysis_task(self, url, entreprise_id=None):
         >>> result = technical_analysis_task.delay('https://example.com', entreprise_id=1)
     """
     try:
-        logger.info(f'Démarrage de l\'analyse technique pour {url}')
+        logger.info(f'[Technical Analysis] ===== DÉMARRAGE DE L\'ANALYSE TECHNIQUE =====')
+        logger.info(f'[Technical Analysis] URL: {url}')
+        logger.info(f'[Technical Analysis] entreprise_id: {entreprise_id}')
+        logger.info(f'[Technical Analysis] task_id: {self.request.id}')
         
         self.update_state(
             state='PROGRESS',
             meta={'progress': 10, 'message': 'Initialisation de l\'analyse technique...'}
         )
+        logger.info(f'[Technical Analysis] État PROGRESS 10% - Initialisation')
         
         analyzer = TechnicalAnalyzer()
+        logger.info(f'[Technical Analysis] TechnicalAnalyzer créé')
         
         self.update_state(
             state='PROGRESS',
             meta={'progress': 30, 'message': 'Analyse en cours...'}
         )
+        logger.info(f'[Technical Analysis] État PROGRESS 30% - Démarrage de l\'analyse')
         
-        # Utiliser la méthode d'analyse technique détaillée
-        results = analyzer.analyze_technical_details(url, enable_nmap=False)
+        # Analyse technique complète (multi-pages, sans nmap par défaut)
+        # Optimisé : moins de pages et profondeur réduite pour accélérer
+        logger.info(f'[Technical Analysis] Appel de analyze_site_overview pour {url}')
+        results = analyzer.analyze_site_overview(url, max_pages=10, max_depth=1, enable_nmap=False)
+        logger.info(f'[Technical Analysis] analyze_site_overview terminé - résultats obtenus: {bool(results)}')
         
         self.update_state(
             state='PROGRESS',
             meta={'progress': 80, 'message': 'Sauvegarde des résultats...'}
         )
+        logger.info(f'[Technical Analysis] État PROGRESS 80% - Préparation de la sauvegarde')
         
         # Sauvegarder dans la base de données
         database = Database()
         analysis_id = None
+        
+        logger.info(f'[Technical Analysis] ===== SAUVEGARDE DANS LA BASE DE DONNÉES =====')
+        logger.info(f'[Technical Analysis] URL: {url}')
+        logger.info(f'[Technical Analysis] entreprise_id: {entreprise_id}')
+        logger.info(f'[Technical Analysis] Résultats disponibles: {bool(results)}')
+        
         if entreprise_id:
-            analysis_id = database.save_technical_analysis(entreprise_id, url, results)
+            try:
+                logger.info(f'[Technical Analysis] Appel de save_technical_analysis(entreprise_id={entreprise_id}, url={url})')
+                analysis_id = database.save_technical_analysis(entreprise_id, url, results)
+                logger.info(f'[Technical Analysis] ✓ Analyse sauvegardée avec succès')
+                logger.info(f'[Technical Analysis]   - analysis_id: {analysis_id}')
+                logger.info(f'[Technical Analysis]   - entreprise_id: {entreprise_id}')
+                logger.info(f'[Technical Analysis]   - url: {url}')
+            except Exception as e:
+                logger.error(f'[Technical Analysis] ✗ ERREUR lors de la sauvegarde', exc_info=True)
+                logger.error(f'[Technical Analysis]   - entreprise_id: {entreprise_id}')
+                logger.error(f'[Technical Analysis]   - url: {url}')
+                logger.error(f'[Technical Analysis]   - Erreur: {str(e)}')
+                raise  # Re-lancer l'exception pour que Celery la gère
+        else:
+            logger.warning(f'[Technical Analysis] ⚠ entreprise_id est None pour {url}')
+            logger.warning(f'[Technical Analysis]   - L\'analyse ne sera PAS sauvegardée dans la base de données')
+            logger.warning(f'[Technical Analysis]   - URL: {url}')
         
         self.update_state(
             state='PROGRESS',
             meta={'progress': 100, 'message': 'Analyse technique terminée!'}
         )
+        logger.info(f'[Technical Analysis] État PROGRESS 100% - Terminé')
         
-        logger.info(f'Analyse technique terminée pour {url} (analysis_id: {analysis_id})')
+        logger.info(f'[Technical Analysis] ===== ANALYSE TECHNIQUE TERMINÉE =====')
+        logger.info(f'[Technical Analysis] URL: {url}')
+        logger.info(f'[Technical Analysis] analysis_id: {analysis_id}')
+        logger.info(f'[Technical Analysis] entreprise_id: {entreprise_id}')
+        logger.info(f'[Technical Analysis] task_id: {self.request.id}')
         
         return {
             'success': True,

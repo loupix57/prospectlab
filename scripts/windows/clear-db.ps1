@@ -8,6 +8,41 @@ param(
     [string]$DbPath
 )
 
+# Gérer aussi les arguments Unix-style (--clear, --no-confirm, etc.)
+# pour compatibilité avec les habitudes de ligne de commande
+$argsList = $args
+foreach ($arg in $argsList) {
+    if ($arg -eq "--clear" -or $arg -eq "-clear") {
+        $Clear = $true
+    }
+    elseif ($arg -eq "--no-confirm" -or $arg -eq "-no-confirm") {
+        $NoConfirm = $true
+    }
+    elseif ($arg -eq "--stats" -or $arg -eq "-stats") {
+        $Stats = $true
+    }
+    elseif ($arg -eq "--db-path" -or $arg -eq "-db-path") {
+        # Le prochain argument est la valeur
+        $idx = [array]::IndexOf($argsList, $arg)
+        if ($idx -ge 0 -and $idx -lt ($argsList.Length - 1)) {
+            $DbPath = $argsList[$idx + 1]
+        }
+    }
+    elseif ($arg -eq "--tables" -or $arg -eq "-tables") {
+        # Les arguments suivants sont les noms de tables
+        $idx = [array]::IndexOf($argsList, $arg)
+        if ($idx -ge 0) {
+            $Tables = @()
+            for ($i = $idx + 1; $i -lt $argsList.Length; $i++) {
+                if ($argsList[$i] -match "^--" -or $argsList[$i] -match "^-") {
+                    break
+                }
+                $Tables += $argsList[$i]
+            }
+        }
+    }
+}
+
 $ErrorActionPreference = "Stop"
 
 # Déterminer le chemin du script Python
@@ -40,15 +75,17 @@ if ($Clear) {
         $pythonArgs += "--no-confirm"
     }
     
-    if ($Tables) {
+    if ($Tables -and $Tables.Count -gt 0) {
         $pythonArgs += "--tables"
-        $pythonArgs += $Tables
+        foreach ($table in $Tables) {
+            $pythonArgs += $table
+        }
     }
 }
 
-if ($DbPath) {
+if ($DbPath -and $DbPath.Trim() -ne "") {
     $pythonArgs += "--db-path"
-    $pythonArgs += $DbPath
+    $pythonArgs += $DbPath.Trim()
 }
 
 # Essayer d'utiliser conda si disponible, sinon python
@@ -84,16 +121,35 @@ Write-Host "Exécution du script de nettoyage de la base de données..." -Foregr
 Write-Host ""
 
 try {
-    # Utiliser python directement (déjà configuré avec le bon chemin si conda)
-    $allArgs = @($pythonScript) + $pythonArgs
+    # Construire les arguments pour Python
+    $allArgs = @()
+    $allArgs += $pythonScript
+    
+    # Ajouter tous les arguments Python en s'assurant qu'ils sont bien formatés
+    foreach ($arg in $pythonArgs) {
+        if ($arg) {
+            $argStr = $arg.ToString().Trim()
+            if ($argStr -ne "") {
+                $allArgs += $argStr
+            }
+        }
+    }
+    
+    # Debug: afficher les arguments (commenté par défaut)
+    # Write-Host "Arguments: $($allArgs -join ' ')" -ForegroundColor Gray
+    
+    # Exécuter avec & en passant les arguments correctement
+    # Utiliser l'opérateur de call & directement
     & $pythonExe $allArgs
     
+    # Vérifier le code de sortie
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         Write-Host "`nErreur lors de l'exécution du script Python (code: $LASTEXITCODE)" -ForegroundColor Red
         exit $LASTEXITCODE
     }
 } catch {
     Write-Host "Erreur: $_" -ForegroundColor Red
+    Write-Host "Commande: $pythonExe $($allArgs -join ' ')" -ForegroundColor Yellow
     exit 1
 }
 

@@ -65,6 +65,7 @@ class UnifiedScraper:
         self.metadata: Dict = {}  # Métadonnées de la page d'accueil (pour compatibilité)
         self.og_data_by_page: Dict[str, Dict] = {}  # OG de toutes les pages scrapées {page_url: og_tags}
         self.images: List[Dict] = []  # Liste des images trouvées avec {url, alt, page_url, width, height}
+        self.forms: List[Dict] = []  # Points d'entrée (formulaires) trouvés sur les pages
         
         # État du scraping
         self.visited_urls: Set[str] = set()
@@ -857,7 +858,88 @@ class UnifiedScraper:
                                 except Exception as e:
                                     pass
             
-            # 4. Extraire les réseaux sociaux
+            # 4. Extraire les formulaires / points d'entrée (pour un usage futur pentest)
+            page_forms = []
+            try:
+                forms = soup.find_all('form')
+                for form in forms:
+                    action = form.get('action', '')
+                    method = form.get('method', 'get').upper()
+                    enctype = form.get('enctype', 'application/x-www-form-urlencoded')
+                    
+                    # Construire l'URL complète de l'action
+                    if action:
+                        if not action.startswith(('http://', 'https://')):
+                            action_url = urljoin(url, action)
+                        else:
+                            action_url = action
+                    else:
+                        action_url = url
+                    
+                    inputs = form.find_all(['input', 'textarea', 'select', 'button'])
+                    fields = []
+                    has_password = False
+                    has_file_upload = False
+                    has_csrf = False
+                    
+                    for field in inputs:
+                        f_type = field.get('type', field.name or '').lower()
+                        name = field.get('name', '')
+                        field_info = {
+                            'name': name,
+                            'type': f_type,
+                            'required': field.has_attr('required'),
+                            'placeholder': field.get('placeholder', ''),
+                            'id': field.get('id', ''),
+                            'class': ' '.join(field.get('class', []))
+                        }
+                        if f_type == 'password':
+                            has_password = True
+                        if f_type == 'file':
+                            has_file_upload = True
+                        
+                        # Détecter les tokens CSRF (patterns courants)
+                        name_lower = name.lower()
+                        if any(token in name_lower for token in ['csrf', 'token', '_token', 'authenticity', 'nonce']):
+                            has_csrf = True
+                            field_info['is_csrf'] = True
+                        
+                        # Extraire les options pour les select
+                        if field.name == 'select':
+                            options = []
+                            for option in field.find_all('option'):
+                                options.append({
+                                    'value': option.get('value', ''),
+                                    'text': option.get_text(strip=True)
+                                })
+                            field_info['options'] = options
+                        
+                        fields.append(field_info)
+                    
+                    # Détecter les protections CSRF dans les meta tags
+                    csrf_meta = soup.find('meta', {'name': re.compile(r'csrf', re.I)})
+                    if csrf_meta:
+                        has_csrf = True
+                    
+                    form_data = {
+                        'page_url': url,
+                        'action': action,
+                        'action_url': action_url,
+                        'method': method,
+                        'enctype': enctype,
+                        'fields': fields,
+                        'has_password': has_password,
+                        'has_file_upload': has_file_upload,
+                        'has_csrf': has_csrf
+                    }
+                    page_forms.append(form_data)
+            except Exception:
+                pass
+            if page_forms:
+                with self.lock:
+                    self.forms.extend(page_forms)
+            
+            # 5. Extraire les réseaux sociaux
             new_social_links = []
             all_links = soup.find_all('a', href=True)
             for link in all_links:
@@ -887,11 +969,11 @@ class UnifiedScraper:
                                     except Exception:
                                         pass
             
-            # 5. Détecter les technologies (seulement sur la page d'accueil)
+            # 6. Détecter les technologies (seulement sur la page d'accueil)
             if depth == 0:
                 self.detect_technologies(text, response.headers)
             
-            # 6. Extraire les métadonnées de toutes les pages
+            # 7. Extraire les métadonnées de toutes les pages
             page_metadata = self.extract_metadata(soup)
             
             with self.lock:
@@ -904,7 +986,7 @@ class UnifiedScraper:
                 if og_tags:  # Ne stocker que si des OG sont présents
                     self.og_data_by_page[url] = og_tags
             
-            # 7. Extraire les images depuis les balises <img> du HTML
+            # 8. Extraire les images depuis les balises <img> du HTML
             page_images = self.extract_images_from_page(soup, url)
             with self.lock:
                 # Éviter les doublons en vérifiant l'URL
@@ -1079,6 +1161,7 @@ class UnifiedScraper:
             'metadata': self.metadata,
             'og_data_by_page': self.og_data_by_page,  # OG de toutes les pages scrapées
             'images': self.images,  # Images extraites depuis les balises <img>
+            'forms': self.forms,    # Formulaires / points d'entrée collectés
             'visited_urls': list(self.visited_urls),
             'duration': duration,
             'total_emails': len(self.emails),
@@ -1087,6 +1170,7 @@ class UnifiedScraper:
             'total_social_platforms': len(self.social_links),
             'total_technologies': sum(len(v) if isinstance(v, list) else 1 for v in self.technologies.values()),
             'total_images': len(self.images),
+            'total_forms': len(self.forms),  # Nombre de formulaires trouvés
             'total_og_pages': len(self.og_data_by_page),  # Nombre de pages avec OG
             'people_with_email': len([p for p in self.people if p.get('email')]),
             'people_with_linkedin': len([p for p in self.people if p.get('linkedin_url')]),

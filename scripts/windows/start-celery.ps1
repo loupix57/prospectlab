@@ -58,47 +58,104 @@ Write-Host ""
 
 # Activer l'environnement conda et lancer Celery
 $condaEnv = "prospectlab"
+$useConda = $false
+$pythonExe = "python"
 
-# Vérifier si conda est disponible
-$condaPath = Get-Command conda -ErrorAction SilentlyContinue
-if (-not $condaPath) {
-    Write-Host "ERREUR: Conda n'est pas trouvé dans le PATH" -ForegroundColor Red
-    Write-Host "Activez manuellement l'environnement conda puis lancez:" -ForegroundColor Yellow
-    Write-Host "  celery -A celery_app worker --loglevel=info --beat" -ForegroundColor Cyan
-    exit 1
+# Vérifier si conda est disponible et si l'environnement existe
+try {
+    $condaCheck = conda env list 2>$null
+    if ($condaCheck -match $condaEnv) {
+        Write-Host "Utilisation de l'environnement Conda: $condaEnv" -ForegroundColor Cyan
+        $useConda = $true
+        
+        # Trouver le chemin Python dans l'environnement conda
+        $condaBase = & conda info --base 2>$null
+        if ($condaBase) {
+            $condaPython = Join-Path $condaBase "envs\$condaEnv\python.exe"
+            if (Test-Path $condaPython) {
+                $pythonExe = $condaPython
+                Write-Host "Python de l'environnement: $pythonExe" -ForegroundColor Gray
+            }
+        }
+    } else {
+        Write-Host "Avertissement: L'environnement conda '$condaEnv' n'a pas été trouvé" -ForegroundColor Yellow
+        Write-Host "Utilisation de Python système..." -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Avertissement: Conda n'est pas disponible, utilisation de Python système..." -ForegroundColor Yellow
 }
+
+Write-Host ""
 
 # Lancer Celery avec le mode solo pour Windows
 Write-Host "Lancement de Celery (mode solo pour Windows)..." -ForegroundColor Green
 Write-Host "Note: Pour arrêter Celery, utilisez Ctrl+C ou le script stop-celery.ps1" -ForegroundColor Cyan
 Write-Host ""
 
+# Fonction pour arrêter les processus Celery
+function Stop-CeleryProcesses {
+    Write-Host "`nArrêt des processus Celery en arrière-plan..." -ForegroundColor Yellow
+    
+    # Fonction pour obtenir la ligne de commande d'un processus
+    function Get-ProcessCommandLine {
+        param([int]$ProcessId)
+        try {
+            $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId"
+            return $process.CommandLine
+        } catch {
+            return $null
+        }
+    }
+    
+    # Trouver tous les processus Python
+    $pythonProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue
+    $celeryProcesses = @()
+    
+    # Filtrer les processus qui exécutent Celery
+    foreach ($proc in $pythonProcesses) {
+        $commandLine = Get-ProcessCommandLine -ProcessId $proc.Id
+        if ($commandLine) {
+            # Vérifier si c'est un processus Celery
+            if ($commandLine -match "celery.*worker" -or 
+                $commandLine -match "celery.*beat" -or 
+                $commandLine -match "run_celery\.py" -or
+                $commandLine -match "celery_app") {
+                $celeryProcesses += $proc
+            }
+        }
+    }
+    
+    if ($celeryProcesses.Count -gt 0) {
+        foreach ($proc in $celeryProcesses) {
+            try {
+                Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+            } catch {
+                # Ignorer les erreurs si le processus est déjà arrêté
+            }
+        }
+        Write-Host "  ✓ $($celeryProcesses.Count) processus Celery arrêtés" -ForegroundColor Green
+    }
+}
+
 # Utiliser le wrapper Python pour une meilleure gestion de Ctrl+C
 if (Test-Path "run_celery.py") {
     Write-Host "Utilisation du wrapper Python pour une meilleure gestion de Ctrl+C..." -ForegroundColor Cyan
     Write-Host ""
     
-    # Obtenir le chemin Python de l'environnement conda directement
-    # Cela évite d'utiliser 'conda run' qui peut bloquer les signaux
-    $condaBase = & conda info --base 2>$null
-    if ($condaBase) {
-        $pythonPath = Join-Path $condaBase "envs\$condaEnv\python.exe"
-        if (Test-Path $pythonPath) {
-            Write-Host "Utilisation de Python depuis: $pythonPath" -ForegroundColor Gray
-            Write-Host ""
-            # Lancer directement avec le Python de l'environnement (sans conda run)
-            & $pythonPath run_celery.py
-        } else {
-            Write-Host "Python de l'environnement conda non trouvé, utilisation de conda run..." -ForegroundColor Yellow
-            Write-Host "Note: Ctrl+C peut ne pas fonctionner avec conda run" -ForegroundColor Yellow
-            Write-Host "      Pour une meilleure gestion, utilisez directement: python run_celery.py" -ForegroundColor Cyan
-            Write-Host ""
-            & conda run -n $condaEnv python run_celery.py
-        }
-    } else {
-        Write-Host "Impossible de trouver conda, utilisation de conda run..." -ForegroundColor Yellow
-        Write-Host ""
-        & conda run -n $condaEnv python run_celery.py
+    # Configurer le gestionnaire pour Ctrl+C
+    [Console]::TreatControlCAsInput = $false
+    
+    try {
+        # Lancer directement avec le Python configuré (conda ou système)
+        & $pythonExe run_celery.py
+    } catch {
+        # Si erreur, arrêter les processus
+        Write-Host "`nErreur détectée, arrêt des processus..." -ForegroundColor Yellow
+        Stop-CeleryProcesses
+    } finally {
+        # S'assurer que tous les processus sont arrêtés
+        Write-Host "`nNettoyage des processus en arrière-plan..." -ForegroundColor Yellow
+        Stop-CeleryProcesses
     }
 } else {
     # Fallback vers la méthode classique si le wrapper n'existe pas
@@ -108,11 +165,16 @@ if (Test-Path "run_celery.py") {
     Write-Host ""
     
     try {
-        & conda run -n $condaEnv celery -A celery_app worker --loglevel=info --pool=solo --beat
+        if ($useConda) {
+            & conda run -n $condaEnv celery -A celery_app worker --loglevel=info --pool=solo --beat
+        } else {
+            & celery -A celery_app worker --loglevel=info --pool=solo --beat
+        }
     } catch {
         Write-Host "`nCelery arrêté." -ForegroundColor Yellow
     } finally {
         Write-Host "Nettoyage terminé." -ForegroundColor Green
+        Stop-CeleryProcesses
     }
 }
 
