@@ -335,8 +335,67 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
             
             results = scraper.scrape()
             
+            # Analyser les emails trouvés avant de sauvegarder
+            emails_found = results.get('emails', [])
+            email_analyses = {}
             
-            # Sauvegarder les résultats complets en BDD
+            if emails_found:
+                logger.info(
+                    f'[Scraping Analyse {analysis_id}] {len(emails_found)} email(s) trouvé(s) pour {entreprise_name}, '
+                    f'lancement de l\'analyse...'
+                )
+                try:
+                    from services.email_analyzer import EmailAnalyzer
+                    
+                    # Extraire les emails sous forme de liste de strings
+                    emails_list = []
+                    for email in emails_found:
+                        if isinstance(email, dict):
+                            email_str = email.get('email') or email.get('value') or str(email)
+                        else:
+                            email_str = str(email)
+                        if email_str:
+                            emails_list.append(email_str)
+                    
+                    # Analyser directement les emails (sans passer par une tâche Celery)
+                    analyzer = EmailAnalyzer()
+                    analyzed_count = 0
+                    
+                    for idx, email_str in enumerate(emails_list, start=1):
+                        try:
+                            logger.debug(
+                                f'[Scraping Analyse {analysis_id}] Analyse de {email_str} ({idx}/{len(emails_list)}) pour {entreprise_name}'
+                            )
+                            analysis = analyzer.analyze_email(email_str, source_url=website_str)
+                            if analysis:
+                                email_analyses[email_str] = analysis
+                                analyzed_count += 1
+                                logger.debug(
+                                    f'[Scraping Analyse {analysis_id}] ✓ {email_str} analysé: '
+                                    f'type={analysis.get("type")}, provider={analysis.get("provider")}, '
+                                    f'mx_valid={analysis.get("mx_valid")}'
+                                )
+                        except Exception as email_error:
+                            logger.warning(
+                                f'[Scraping Analyse {analysis_id}] ⚠ Erreur lors de l\'analyse de {email_str}: {email_error}'
+                            )
+                    
+                    logger.info(
+                        f'[Scraping Analyse {analysis_id}] ✓ Analyse des emails terminée pour {entreprise_name}: '
+                        f'{analyzed_count}/{len(emails_list)} email(s) analysé(s)'
+                    )
+                except Exception as email_error:
+                    logger.error(
+                        f'[Scraping Analyse {analysis_id}] ✗ Erreur lors de l\'analyse des emails pour {entreprise_name}: {email_error}',
+                        exc_info=True
+                    )
+            else:
+                logger.info(
+                    f'[Scraping Analyse {analysis_id}] Aucun email trouvé pour {entreprise_name}, '
+                    f'pas d\'analyse nécessaire'
+                )
+            
+            # Sauvegarder les résultats complets en BDD avec les analyses
             try:
                 db = Database()
                 social_profiles = results.get('social_links')
@@ -371,7 +430,8 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
                     total_metadata=metadata_total,
                     total_images=results.get('total_images', 0),
                     total_forms=results.get('total_forms', 0),
-                    duration=results.get('duration', 0)
+                    duration=results.get('duration', 0),
+                    email_analyses=email_analyses if email_analyses else None
                 )
                 logger.info(
                     f'Scraper sauvegardé (id={scraper_id}) pour entreprise {entreprise_id} '
@@ -470,7 +530,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
             
             # Mise à jour de progression après l'entreprise
             update_progress(
-                f'Scraping terminé pour {entreprise_name}',
+                f'Scraping et analyse terminés pour {entreprise_name}',
                 current_index,
                 entreprise_name,
                 website_str,

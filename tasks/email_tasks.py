@@ -30,27 +30,54 @@ def analyze_emails_task(self, emails, source_url=None):
     """
     try:
         if not emails:
+            logger.info(f'[Analyse Emails] Aucun email à analyser (source_url={source_url})')
             return {'success': True, 'results': []}
+
+        logger.info(
+            f'[Analyse Emails] Démarrage de l\'analyse de {len(emails)} email(s) '
+            f'(source_url={source_url})'
+        )
 
         analyzer = EmailAnalyzer()
         results = []
-
         total = len(emails)
+
         for idx, email in enumerate(emails, start=1):
-            self.update_state(
-                state='PROGRESS',
-                meta={
-                    'progress': int(idx / total * 100),
-                    'message': f'Analyse de {email} ({idx}/{total})'
-                }
-            )
-            analysis = analyzer.analyze_email(email, source_url=source_url)
-            if analysis:
-                results.append(analysis)
+            try:
+                self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'progress': int(idx / total * 100),
+                        'message': f'Analyse de {email} ({idx}/{total})'
+                    }
+                )
+                logger.debug(f'[Analyse Emails] Analyse de {email} ({idx}/{total})')
+                
+                analysis = analyzer.analyze_email(email, source_url=source_url)
+                if analysis:
+                    results.append(analysis)
+                    logger.debug(
+                        f'[Analyse Emails] ✓ {email} analysé: '
+                        f'type={analysis.get("type")}, provider={analysis.get("provider")}, '
+                        f'mx_valid={analysis.get("mx_valid")}'
+                    )
+                else:
+                    logger.warning(f'[Analyse Emails] ⚠ Aucun résultat pour {email}')
+            except Exception as email_error:
+                logger.error(
+                    f'[Analyse Emails] ✗ Erreur lors de l\'analyse de {email}: {email_error}',
+                    exc_info=True
+                )
+                # Continuer avec l'email suivant même en cas d'erreur
+
+        logger.info(
+            f'[Analyse Emails] Analyse terminée: {len(results)}/{total} email(s) analysé(s) avec succès '
+            f'(source_url={source_url})'
+        )
 
         return {'success': True, 'results': results, 'total': total}
     except Exception as e:
-        logger.error(f'Erreur analyse emails: {e}', exc_info=True)
+        logger.error(f'[Analyse Emails] Erreur critique lors de l\'analyse des emails: {e}', exc_info=True)
         raise
 
 

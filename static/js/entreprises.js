@@ -1932,9 +1932,19 @@
             emptyState.remove();
         }
         
+        // Extraire l'email string si c'est un objet
+        let emailStr = email;
+        if (typeof email === 'object' && email !== null) {
+            emailStr = email.email || email.value || String(email);
+            // Si analysis n'est pas fourni mais que l'objet email contient analysis
+            if (!analysis && email.analysis) {
+                analysis = email.analysis;
+            }
+        }
+        
         const existingEmail = Array.from(list.children).find(item => {
             const emailText = item.querySelector('.result-item-title')?.textContent;
-            return emailText === email;
+            return emailText === emailStr;
         });
         if (existingEmail) return;
         
@@ -1944,8 +1954,8 @@
             <div class="result-item-icon">📧</div>
             <div class="result-item-content">
                 <div class="result-item-header">
-                    <strong class="result-item-title">${escapeHtml(email)}</strong>
-                    ${analysis ? `<span class="result-item-badge">${escapeHtml(analysis.format || 'Email')}</span>` : ''}
+                    <strong class="result-item-title">${escapeHtml(emailStr)}</strong>
+                    ${analysis && analysis.type ? `<span class="result-item-badge">${escapeHtml(analysis.type)}</span>` : ''}
                 </div>
                 ${analysis && analysis.provider ? `<div class="result-item-meta">Fournisseur: ${escapeHtml(analysis.provider)}</div>` : ''}
             </div>

@@ -40,6 +40,7 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis�
 - [Améliorations Temps Réel](developpement/AMELIORATIONS_TEMPS_REEL.md) - Améliorations du système de scraping et d'analyse technique en temps réel
 - [Séparation des Scripts](developpement/SEPARATION_SCRIPTS.md) - Refactorisation des scripts JavaScript inline vers des fichiers externes
 - [Architecture distribuée Raspberry Pi](developpement/ARCHITECTURE_DISTRIBUEE_RASPBERRY.md) - Notes de travail sur l'utilisation des Raspberry Pi comme workers Celery
+- [Analyse des emails pendant le scraping](developpement/ANALYSE_EMAILS_SCRAPING.md) - Implémentation de l'analyse automatique des emails et corrections associées
 
 ## Structure de la base de donnees
 

@@ -172,8 +172,59 @@
         if (scraper.emails && scraper.emails.length > 0) {
             html += '<div class="scraper-section"><h3>Emails (' + scraper.emails.length + ')</h3><ul>';
             scraper.emails.slice(0, 10).forEach(email => {
-                const emailStr = typeof email === 'string' ? email : (email.email || email.value || '');
-                html += `<li><a href="mailto:${emailStr}">${emailStr}</a></li>`;
+                const emailData = typeof email === 'string' ? { email: email } : email;
+                const emailStr = emailData.email || emailData.value || '';
+                const analysis = emailData.analysis;
+                
+                let emailHtml = `<li><a href="mailto:${emailStr}">${emailStr}</a>`;
+                
+                // Afficher les analyses si disponibles
+                if (analysis) {
+                    emailHtml += ' <span class="email-analysis">';
+                    
+                    // Badge type
+                    if (analysis.type) {
+                        const typeClass = analysis.type === 'Professionnel' ? 'badge-success' : 
+                                        analysis.type === 'Personnel' ? 'badge-info' : 'badge-warning';
+                        emailHtml += `<span class="badge ${typeClass}" title="Type d'email">${analysis.type}</span> `;
+                    }
+                    
+                    // Badge provider
+                    if (analysis.provider) {
+                        emailHtml += `<span class="badge badge-secondary" title="Fournisseur">${analysis.provider}</span> `;
+                    }
+                    
+                    // Badge format
+                    if (analysis.format_valid !== null) {
+                        const formatClass = analysis.format_valid ? 'badge-success' : 'badge-danger';
+                        const formatText = analysis.format_valid ? 'Format OK' : 'Format invalide';
+                        emailHtml += `<span class="badge ${formatClass}" title="Validité du format">${formatText}</span> `;
+                    }
+                    
+                    // Badge MX
+                    if (analysis.mx_valid !== null) {
+                        const mxClass = analysis.mx_valid ? 'badge-success' : 'badge-danger';
+                        const mxText = analysis.mx_valid ? 'MX OK' : 'MX invalide';
+                        emailHtml += `<span class="badge ${mxClass}" title="Validité MX">${mxText}</span> `;
+                    }
+                    
+                    // Badge risque
+                    if (analysis.risk_score !== null && analysis.risk_score !== undefined) {
+                        const riskClass = analysis.risk_score < 30 ? 'badge-success' : 
+                                         analysis.risk_score < 70 ? 'badge-warning' : 'badge-danger';
+                        emailHtml += `<span class="badge ${riskClass}" title="Score de risque (0-100)">Risque: ${analysis.risk_score}</span> `;
+                    }
+                    
+                    // Nom extrait
+                    if (analysis.name_info && analysis.name_info.full_name) {
+                        emailHtml += `<span class="badge badge-info" title="Nom extrait de l'email">${analysis.name_info.full_name}</span> `;
+                    }
+                    
+                    emailHtml += '</span>';
+                }
+                
+                emailHtml += '</li>';
+                html += emailHtml;
             });
             if (scraper.emails.length > 10) {
                 html += `<li><em>... et ${scraper.emails.length - 10} autres</em></li>`;

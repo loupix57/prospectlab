@@ -675,6 +675,41 @@ class Database:
             )
         ''')
         
+        # Ajouter les colonnes d'analyse des emails si elles n'existent pas
+        # Migration : renommer les colonnes pour enlever le préfixe email_
+        email_analysis_columns = [
+            ('provider', 'TEXT'),
+            ('type', 'TEXT'),
+            ('format_valid', 'INTEGER'),
+            ('mx_valid', 'INTEGER'),
+            ('risk_score', 'INTEGER'),
+            ('domain', 'TEXT'),
+            ('name_info', 'TEXT'),
+            ('analyzed_at', 'TIMESTAMP')
+        ]
+        for col_name, col_type in email_analysis_columns:
+            try:
+                cursor.execute(f'ALTER TABLE scraper_emails ADD COLUMN {col_name} {col_type}')
+            except sqlite3.OperationalError:
+                pass  # La colonne existe déjà
+        
+        # Migration : copier les données des anciennes colonnes vers les nouvelles
+        try:
+            cursor.execute('''
+                UPDATE scraper_emails SET
+                    provider = email_provider,
+                    type = email_type,
+                    format_valid = email_format_valid,
+                    mx_valid = email_mx_valid,
+                    risk_score = email_risk_score,
+                    domain = email_domain,
+                    name_info = email_name_info,
+                    analyzed_at = email_analyzed_at
+                WHERE email_provider IS NOT NULL
+            ''')
+        except sqlite3.OperationalError:
+            pass  # Les colonnes anciennes n'existent peut-être pas encore
+        
         # Table des téléphones scrapés
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS scraper_phones (
@@ -2534,7 +2569,8 @@ class Database:
     def save_scraper(self, entreprise_id, url, scraper_type, emails=None, people=None, phones=None, 
                      social_profiles=None, technologies=None, metadata=None, images=None, forms=None,
                      visited_urls=0, total_emails=0, total_people=0, total_phones=0,
-                     total_social_profiles=0, total_technologies=0, total_metadata=0, total_images=0, total_forms=0, duration=0):
+                     total_social_profiles=0, total_technologies=0, total_metadata=0, total_images=0, total_forms=0, duration=0,
+                     email_analyses=None):
         """
         Sauvegarde ou met à jour un scraper dans la base de données.
         Si un scraper existe déjà pour cette entreprise/URL/type, il est mis à jour.
@@ -2635,7 +2671,7 @@ class Database:
         # Utiliser la même connexion pour éviter les verrouillages
         try:
             if emails:
-                self._save_scraper_emails_in_transaction(cursor, scraper_id, entreprise_id, emails)
+                self._save_scraper_emails_in_transaction(cursor, scraper_id, entreprise_id, emails, email_analyses)
             if phones:
                 self._save_scraper_phones_in_transaction(cursor, scraper_id, entreprise_id, phones)
             if social_profiles:
@@ -2671,8 +2707,17 @@ class Database:
         # Log après sauvegarde pour vérification
         return scraper_id
     
-    def _save_scraper_emails_in_transaction(self, cursor, scraper_id, entreprise_id, emails):
-        """Sauvegarde les emails dans la transaction en cours"""
+    def _save_scraper_emails_in_transaction(self, cursor, scraper_id, entreprise_id, emails, email_analyses=None):
+        """
+        Sauvegarde les emails dans la transaction en cours
+        
+        Args:
+            cursor: Curseur de la transaction
+            scraper_id: ID du scraper
+            entreprise_id: ID de l'entreprise
+            emails: Liste d'emails (string ou list)
+            email_analyses: Dict avec email comme clé et analyse comme valeur (optionnel)
+        """
         if not emails:
             return
         
@@ -2689,7 +2734,18 @@ class Database:
         if not isinstance(emails, list):
             return
         
-        # Insérer les nouveaux emails
+        # Préparer le dict des analyses (email -> analyse)
+        analyses_dict = {}
+        if email_analyses:
+            if isinstance(email_analyses, dict):
+                analyses_dict = email_analyses
+            elif isinstance(email_analyses, list):
+                # Si c'est une liste d'analyses, créer un dict
+                for analysis in email_analyses:
+                    if isinstance(analysis, dict) and 'email' in analysis:
+                        analyses_dict[analysis['email']] = analysis
+        
+        # Insérer les nouveaux emails avec leurs analyses
         for email in emails:
             if isinstance(email, dict):
                 email_str = email.get('email') or email.get('value') or str(email)
@@ -2699,10 +2755,34 @@ class Database:
                 page_url = None
             
             if email_str:
-                cursor.execute('''
-                    INSERT OR IGNORE INTO scraper_emails (scraper_id, entreprise_id, email, page_url)
-                    VALUES (?, ?, ?, ?)
-                ''', (scraper_id, entreprise_id, email_str, page_url))
+                # Récupérer l'analyse si elle existe
+                analysis = analyses_dict.get(email_str)
+                
+                if analysis:
+                    # Sauvegarder avec les données d'analyse
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO scraper_emails 
+                        (scraper_id, entreprise_id, email, page_url, 
+                         provider, type, format_valid, mx_valid, 
+                         risk_score, domain, name_info, analyzed_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        scraper_id, entreprise_id, email_str, page_url,
+                        analysis.get('provider'),
+                        analysis.get('type'),
+                        1 if analysis.get('format_valid') else 0,
+                        1 if analysis.get('mx_valid') is True else (0 if analysis.get('mx_valid') is False else None),
+                        analysis.get('risk_score'),
+                        analysis.get('domain'),
+                        json.dumps(analysis.get('name_info')) if analysis.get('name_info') else None,
+                        analysis.get('analyzed_at')
+                    ))
+                else:
+                    # Sauvegarder sans analyse
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO scraper_emails (scraper_id, entreprise_id, email, page_url)
+                        VALUES (?, ?, ?, ?)
+                    ''', (scraper_id, entreprise_id, email_str, page_url))
     
     def save_scraper_emails(self, scraper_id, entreprise_id, emails):
         """
@@ -3066,25 +3146,49 @@ class Database:
     
     def get_scraper_emails(self, scraper_id):
         """
-        Récupère les emails d'un scraper depuis la table normalisée
+        Récupère les emails d'un scraper depuis la table normalisée avec leurs analyses
         
         Args:
             scraper_id: ID du scraper
         
         Returns:
-            list: Liste des emails (strings)
+            list: Liste des emails avec leurs analyses (dict ou string si pas d'analyse)
         """
         conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT email FROM scraper_emails WHERE scraper_id = ? ORDER BY date_found DESC
+            SELECT email, page_url, provider, type, format_valid, 
+                   mx_valid, risk_score, domain, name_info, analyzed_at
+            FROM scraper_emails WHERE scraper_id = ? ORDER BY date_found DESC
         ''', (scraper_id,))
         
         rows = cursor.fetchall()
         conn.close()
         
-        return [row['email'] for row in rows]
+        emails = []
+        for row in rows:
+            email_data = {
+                'email': row['email'],
+                'page_url': row['page_url']
+            }
+            
+            # Ajouter les données d'analyse si elles existent
+            if row['provider'] is not None:
+                email_data['analysis'] = {
+                    'provider': row['provider'],
+                    'type': row['type'],
+                    'format_valid': bool(row['format_valid']) if row['format_valid'] is not None else None,
+                    'mx_valid': bool(row['mx_valid']) if row['mx_valid'] is not None else None,
+                    'risk_score': row['risk_score'],
+                    'domain': row['domain'],
+                    'name_info': json.loads(row['name_info']) if row['name_info'] else None,
+                    'analyzed_at': row['analyzed_at']
+                }
+            
+            emails.append(email_data)
+        
+        return emails
     
     def get_scraper_phones(self, scraper_id):
         """

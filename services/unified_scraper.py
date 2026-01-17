@@ -56,7 +56,7 @@ class UnifiedScraper:
         
         # Données collectées
         self.links: Set[str] = set()
-        self.emails: Set[str] = set()
+        self.emails: Dict[str, str] = {}  # email -> page_url (pour garder la trace de la page où l'email a été trouvé)
         self.people: List[Dict] = []
         self.people_by_name: Dict[str, Dict] = {}
         self.phones: Set[str] = set()
@@ -806,9 +806,12 @@ class UnifiedScraper:
             # 1. Extraire les emails
             page_emails = self.extract_emails(text)
             with self.lock:
-                old_emails = self.emails.copy()
-                self.emails.update(page_emails)
-                new_emails = self.emails - old_emails
+                old_emails = set(self.emails.keys())
+                # Stocker chaque email avec sa page_url
+                for email in page_emails:
+                    if email not in self.emails:
+                        self.emails[email] = url
+                new_emails = set(self.emails.keys()) - old_emails
                 
                 if new_emails and self.on_email_found:
                     for email in sorted(new_emails):
@@ -1152,8 +1155,16 @@ class UnifiedScraper:
         logger = logging.getLogger(__name__)
         logger.info(f'[UnifiedScraper] Scraping terminé pour {self.base_url}: {len(self.og_data_by_page)} page(s) avec OG collectées sur {len(self.visited_urls)} page(s) visitées')
         
+        # Formater les emails avec leur page_url
+        emails_list = []
+        for email, page_url in self.emails.items():
+            emails_list.append({
+                'email': email,
+                'page_url': page_url
+            })
+        
         return {
-            'emails': list(self.emails),
+            'emails': emails_list,
             'people': self.people,
             'phones': phones_list,
             'social_links': self.social_links,
