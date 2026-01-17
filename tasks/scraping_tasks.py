@@ -42,7 +42,7 @@ def _safe_update_state(task, task_id, **kwargs):
     except Exception as exc:
         # Ne log que si ce n'est pas une erreur de task_id vide
         if 'task_id' not in str(exc).lower() and 'empty' not in str(exc).lower():
-            logger.warning(f'update_state impossible: {exc}')
+            return logger.warning(f'update_state impossible: {exc}')
 
 
 @celery.task(bind=True)

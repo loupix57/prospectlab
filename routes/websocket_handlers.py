@@ -452,7 +452,7 @@ def register_websocket_handlers(socketio, app):
                                             
                                             # Lancer le monitoring dans un thread séparé
                                             threading.Thread(target=monitor_all_technical_tasks, daemon=True).start()
-                                        
+
                                         # Surveiller la tâche de scraping
                                         def monitor_scraping():
                                             try:
@@ -481,7 +481,7 @@ def register_websocket_handlers(socketio, app):
                                                                     },
                                                                     room=session_id
                                                                 )
-                                                                
+
                                                                 last_meta_scraping = meta_scraping
                                                         elif scraping_result.state == 'SUCCESS':
                                                             res = scraping_result.result or {}
@@ -1093,4 +1093,101 @@ def register_websocket_handlers(socketio, app):
                 }, room=request.sid)
             except:
                 pass
+    
+    @socketio.on('monitor_campagne')
+    def handle_monitor_campagne(data):
+        """
+        Suit une campagne email en temps réel
+        
+        Args:
+            data (dict): {task_id: str, campagne_id: int}
+        """
+        task_id = data.get('task_id')
+        campagne_id = data.get('campagne_id')
+        
+        # Capturer request.sid AVANT de lancer le thread
+        session_id = request.sid
+        
+        if not task_id:
+            safe_emit(socketio, 'campagne_error', {
+                'error': 'task_id requis'
+            }, room=session_id)
+            return
+        
+        def monitor_campagne_task():
+            """
+            Monitor une tâche de campagne et émet les événements de progression
+            """
+            try:
+                task = celery.AsyncResult(task_id)
+                last_progress = -1
+                
+                while not task.ready():
+                    current_state = task.state
+                    
+                    # Vérifier si la tâche est en erreur
+                    if current_state == 'FAILURE':
+                        error_info = task.info
+                        error_msg = str(error_info) if error_info else 'Erreur inconnue'
+                        logger.error(f'Campagne {campagne_id} en erreur: {error_msg}')
+                        safe_emit(socketio, 'campagne_error', {
+                            'campagne_id': campagne_id,
+                            'error': error_msg
+                        }, room=session_id)
+                        break
+                    
+                    # Émettre la progression si disponible
+                    if current_state == 'PROGRESS':
+                        meta = task.info or {}
+                        current_progress = meta.get('progress', 0)
+                        
+                        # Émettre seulement si la progression a changé ou si de nouveaux logs sont disponibles
+                        if current_progress != last_progress or meta.get('logs'):
+                            safe_emit(socketio, 'campagne_progress', {
+                                'campagne_id': campagne_id,
+                                'progress': current_progress,
+                                'message': meta.get('message', ''),
+                                'current': meta.get('current', 0),
+                                'total': meta.get('total', 0),
+                                'sent': meta.get('sent', 0),
+                                'failed': meta.get('failed', 0),
+                                'logs': meta.get('logs', [])
+                            }, room=session_id)
+                            last_progress = current_progress
+                    
+                    threading.Event().wait(0.5)  # Attendre 0.5 seconde pour des mises à jour plus fréquentes
+                
+                # Vérifier l'état final de la tâche
+                if task.ready():
+                    if task.successful():
+                        result = task.result
+                        safe_emit(socketio, 'campagne_complete', {
+                            'campagne_id': campagne_id,
+                            'result': result
+                        }, room=session_id)
+                    elif task.state == 'FAILURE':
+                        error_info = task.info
+                        error_msg = str(error_info) if error_info else 'Erreur inconnue'
+                        safe_emit(socketio, 'campagne_error', {
+                            'campagne_id': campagne_id,
+                            'error': error_msg
+                        }, room=session_id)
+                    else:
+                        # État inattendu
+                        safe_emit(socketio, 'campagne_error', {
+                            'campagne_id': campagne_id,
+                            'error': f'État inattendu: {task.state}'
+                        }, room=session_id)
+            
+            except Exception as e:
+                logger.error(f'Erreur monitoring campagne {campagne_id}: {e}', exc_info=True)
+                safe_emit(socketio, 'campagne_error', {
+                    'campagne_id': campagne_id,
+                    'error': f'Erreur lors du suivi: {str(e)}'
+                }, room=session_id)
+        
+        # Démarrer le monitoring dans un thread séparé
+        thread = threading.Thread(target=monitor_campagne_task)
+        thread.daemon = True
+        thread.start()
 

@@ -282,24 +282,24 @@
                                 setTimeout(simulateProcessing, 100);
                             } else {
                                 // Traitement terminé
-                                progressFill.style.width = '100%';
-                                progressFill.textContent = '100%';
-                                progressFill.style.background = 'linear-gradient(90deg, #27ae60, #229954)';
-                                progressText.textContent = 'Upload réussi ! Redirection...';
+                        progressFill.style.width = '100%';
+                        progressFill.textContent = '100%';
+                        progressFill.style.background = 'linear-gradient(90deg, #27ae60, #229954)';
+                        progressText.textContent = 'Upload réussi ! Redirection...';
                                 
                                 // Masquer les stats
                                 if (progressSpeedEl) progressSpeedEl.textContent = '';
                                 if (progressEtaEl) progressEtaEl.textContent = '';
-                                
-                                // Afficher les avertissements de validation si présents
-                                if (data.validation_warnings && data.validation_warnings.length > 0) {
-                                    const warnings = data.validation_warnings.slice(0, 5).join(', ');
-                                    showStatus(`Upload réussi. Avertissements: ${warnings}${data.validation_warnings.length > 5 ? '...' : ''}`, 'warning');
-                                }
-                                
-                                // Rediriger vers la prévisualisation après un court délai
-                                setTimeout(() => {
-                                    window.location.href = `/preview/${data.filename}`;
+                        
+                        // Afficher les avertissements de validation si présents
+                        if (data.validation_warnings && data.validation_warnings.length > 0) {
+                            const warnings = data.validation_warnings.slice(0, 5).join(', ');
+                            showStatus(`Upload réussi. Avertissements: ${warnings}${data.validation_warnings.length > 5 ? '...' : ''}`, 'warning');
+                        }
+                        
+                        // Rediriger vers la prévisualisation après un court délai
+                        setTimeout(() => {
+                            window.location.href = `/preview/${data.filename}`;
                                 }, 500);
                             }
                         }
@@ -307,7 +307,7 @@
                     
                     // Démarrer la simulation du traitement
                     setTimeout(simulateProcessing, 50);
-                } else {
+                    } else {
                     showStatus(data?.error || 'Erreur lors de l\'upload', 'error');
                     uploadBtn.disabled = false;
                     progressContainer.style.display = 'none';

@@ -50,6 +50,7 @@
                 <li class="nav-dropdown">
                     <a href="#" class="dropdown-toggle">Emails <span class="dropdown-arrow">▼</span></a>
                     <ul class="dropdown-menu">
+                        <li><a href="{{ url_for('other.list_campagnes') }}">Campagnes</a></li>
                         <li><a href="{{ url_for('other.send_emails') }}">Envoyer Emails</a></li>
                         <li><a href="{{ url_for('other.manage_templates') }}">Modèles</a></li>
                     </ul>

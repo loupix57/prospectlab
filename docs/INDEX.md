@@ -7,6 +7,7 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis√
 - [README principal](../README.md) - Vue d'ensemble et installation rapide
 - [Guide Celery](CELERY.md) - Configuration et utilisation de Celery pour les taches asynchrones
 - [Guide Scraping](SCRAPING.md) - Documentation complete du systeme de scraping unifie
+- [Campagnes Email](CAMPAGNES_EMAIL.md) - Syst√®me de campagnes email avec tracking
 
 ## Installation
 
@@ -61,6 +62,9 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis√
 - **osint_analyses** : Analyses OSINT (recherche responsables)
 - **pentest_analyses** : Analyses Pentest (securite)
 - **templates** : Modeles d'emails
+- **campagnes_email** : Campagnes d'envoi d'emails
+- **emails_envoyes** : Emails envoy√©s avec tracking
+- **email_tracking_events** : Evenements de tracking (ouvertures, clics)
 
 Toutes les relations utilisent `ON DELETE CASCADE` pour maintenir l'integrite referentielle.
 
