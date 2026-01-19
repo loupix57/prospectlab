@@ -71,8 +71,10 @@
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const maxWorkers = parseInt(document.getElementById('max_workers').value) || 3;
-        const delay = parseFloat(document.getElementById('delay').value) || 2.0;
+        // Valeurs optimisées pour Celery avec --pool=threads --concurrency=4
+        // Celery gère déjà la concurrence, pas besoin de délai artificiel
+        const maxWorkers = 4;  // Optimisé pour Celery avec concurrency=4
+        const delay = 0.1;     // Délai minimal, Celery gère la concurrence
         
         // Afficher le statut
         statusDiv.style.display = 'block';
@@ -106,7 +108,7 @@
             
             // Connexion établie, lancer l'analyse
             statusDiv.className = 'status-message status-info';
-            statusDiv.innerHTML = 'Connexion établie. Démarrage de l\'analyse...';
+            statusDiv.innerHTML = 'Connexion établie. Démarrage de l\'analyse avec Celery (4 workers)...';
             progressText.textContent = 'Initialisation...';
             
             window.wsManager.startAnalysis(filename, {
@@ -635,22 +637,416 @@
         }
     }
     
+    // Section pour l'avancement de l'analyse OSINT
+    const osintProgressContainer = document.createElement('div');
+    osintProgressContainer.id = 'osint-progress-container';
+    osintProgressContainer.style.cssText = 'margin-top: 1.5rem; padding: 1.5rem; background: #ffffff; border-radius: 10px; border: 1px solid #d7e3f0; border-left: 5px solid #9333ea; display: none; box-shadow: 0 6px 16px rgba(17,24,39,0.08);';
+    
+    const osintProgressTitleRow = document.createElement('div');
+    osintProgressTitleRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;';
+    
+    const osintProgressTitle = document.createElement('div');
+    osintProgressTitle.style.cssText = 'font-weight: 700; color: #111827;';
+    osintProgressTitle.textContent = 'Analyse OSINT en cours...';
+    
+    const osintProgressCountBadge = document.createElement('div');
+    osintProgressCountBadge.id = 'osint-progress-count';
+    osintProgressCountBadge.style.cssText = 'background: #f3e8ff; color: #6b21a8; border: 1px solid #c084fc; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 700; white-space: nowrap;';
+    osintProgressCountBadge.textContent = '0 / 0 entreprises';
+    
+    osintProgressTitleRow.appendChild(osintProgressTitle);
+    osintProgressTitleRow.appendChild(osintProgressCountBadge);
+    
+    // Jauge pour l'entreprise en cours
+    const osintCurrentLabelRow = document.createElement('div');
+    osintCurrentLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;';
+    
+    const osintCurrentLabel = document.createElement('div');
+    osintCurrentLabel.style.cssText = 'font-size: 0.85rem; color: #6b7280; font-weight: 600;';
+    osintCurrentLabel.textContent = 'Entreprise en cours :';
+    
+    const osintCurrentInfo = document.createElement('div');
+    osintCurrentInfo.id = 'osint-current-info';
+    osintCurrentInfo.style.cssText = 'font-size: 0.85rem; color: #111827; font-weight: 500; flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+    osintCurrentInfo.textContent = '';
+    
+    osintCurrentLabelRow.appendChild(osintCurrentLabel);
+    osintCurrentLabelRow.appendChild(osintCurrentInfo);
+    
+    const osintCurrentBar = document.createElement('div');
+    osintCurrentBar.style.cssText = 'width: 100%; height: 18px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 0.75rem; position: relative;';
+    
+    const osintCurrentFill = document.createElement('div');
+    osintCurrentFill.id = 'osint-current-fill';
+    osintCurrentFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #8b5cf6, #7c3aed); width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;';
+    
+    const osintCurrentLabelInner = document.createElement('div');
+    osintCurrentLabelInner.id = 'osint-current-label';
+    osintCurrentLabelInner.style.cssText = 'color: #ffffff; font-size: 0.8rem; font-weight: 600; white-space: nowrap;';
+    osintCurrentLabelInner.textContent = '0%';
+    
+    osintCurrentBar.appendChild(osintCurrentFill);
+    osintCurrentFill.appendChild(osintCurrentLabelInner);
+    
+    // Jauge pour le total des entreprises
+    const osintTotalLabelRow = document.createElement('div');
+    osintTotalLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;';
+    
+    const osintTotalLabel = document.createElement('div');
+    osintTotalLabel.style.cssText = 'font-size: 0.85rem; color: #6b7280; font-weight: 600;';
+    osintTotalLabel.textContent = 'Progression globale :';
+    
+    const osintTotalInfo = document.createElement('div');
+    osintTotalInfo.id = 'osint-total-info';
+    osintTotalInfo.style.cssText = 'font-size: 0.85rem; color: #111827; font-weight: 500; flex: 1; text-align: right;';
+    osintTotalInfo.textContent = '';
+    
+    osintTotalLabelRow.appendChild(osintTotalLabel);
+    osintTotalLabelRow.appendChild(osintTotalInfo);
+    
+    const osintTotalBar = document.createElement('div');
+    osintTotalBar.style.cssText = 'width: 100%; height: 18px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 0.75rem; position: relative;';
+    
+    const osintTotalFill = document.createElement('div');
+    osintTotalFill.id = 'osint-total-fill';
+    osintTotalFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;';
+    
+    const osintTotalLabelInner = document.createElement('div');
+    osintTotalLabelInner.id = 'osint-total-label';
+    osintTotalLabelInner.style.cssText = 'color: #ffffff; font-size: 0.8rem; font-weight: 600; white-space: nowrap;';
+    osintTotalLabelInner.textContent = '0%';
+    
+    osintTotalBar.appendChild(osintTotalFill);
+    osintTotalFill.appendChild(osintTotalLabelInner);
+    
+    // Section pour les totaux cumulés OSINT (similaire au scraping)
+    const osintCumulativeBox = document.createElement('div');
+    osintCumulativeBox.id = 'osint-cumulative-box';
+    osintCumulativeBox.style.cssText = 'background: #e9fbf1; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid #a7f3d0; border-left: 4px solid #16a34a; margin-top: 0.75rem;';
+    
+    const osintCumulativeLabel = document.createElement('div');
+    osintCumulativeLabel.style.cssText = 'font-size: 0.78rem; color: #166534; font-weight: 800; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.6px;';
+    osintCumulativeLabel.textContent = 'Total cumulé';
+    
+    const osintCumulativeContent = document.createElement('div');
+    osintCumulativeContent.id = 'osint-cumulative-content';
+    osintCumulativeContent.style.cssText = 'color: #111827; font-size: 0.95rem; font-weight: 700; line-height: 1.6; display: flex; flex-wrap: wrap; align-items: center;';
+    osintCumulativeContent.textContent = '';
+    
+    osintCumulativeBox.appendChild(osintCumulativeLabel);
+    osintCumulativeBox.appendChild(osintCumulativeContent);
+    
+    osintProgressContainer.appendChild(osintProgressTitleRow);
+    osintProgressContainer.appendChild(osintCurrentLabelRow);
+    osintProgressContainer.appendChild(osintCurrentBar);
+    osintProgressContainer.appendChild(osintTotalLabelRow);
+    osintProgressContainer.appendChild(osintTotalBar);
+    osintProgressContainer.appendChild(osintCumulativeBox);
+    
+    function setupOSINTListener() {
+        if (window.wsManager && window.wsManager.socket) {
+            window.wsManager.socket.on('osint_analysis_started', function(data) {
+                // Ne pas afficher si aucune entreprise (total === 0)
+                if (typeof data.total === 'number' && data.total === 0) {
+                    osintProgressContainer.style.display = 'none';
+                    return;
+                }
+                
+                if (!osintProgressContainer.parentNode) {
+                    // Ajouter après le conteneur d'analyse technique
+                    if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(osintProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(osintProgressContainer);
+                    } else {
+                        progressContainer.after(osintProgressContainer);
+                    }
+                }
+                osintProgressContainer.style.display = 'block';
+                
+                const message = data.message || 'Analyse OSINT en cours...';
+                
+                // Compteur X/Y entreprises (OSINT)
+                if (typeof data.current === 'number' && typeof data.total === 'number' && data.total > 0) {
+                    osintProgressCountBadge.textContent = `${data.current} / ${data.total} entreprises`;
+                } else {
+                    osintProgressCountBadge.textContent = 'En cours...';
+                }
+                
+                osintCurrentInfo.textContent = 'En cours...';
+                osintTotalInfo.textContent = 'En cours...';
+                osintCurrentFill.style.width = '0%';
+                osintCurrentLabelInner.textContent = '0%';
+                osintTotalFill.style.width = '0%';
+                osintTotalLabelInner.textContent = '0%';
+                
+                // Réinitialiser les totaux cumulés
+                const osintCumulativeContent = document.getElementById('osint-cumulative-content');
+                const osintCumulativeBox = document.getElementById('osint-cumulative-box');
+                if (osintCumulativeContent) {
+                    osintCumulativeContent.innerHTML = '<span style="color: #6b7280; font-size: 0.9rem; font-style: italic;">Aucune donnée collectée pour le moment</span>';
+                }
+                if (osintCumulativeBox) {
+                    osintCumulativeBox.style.display = 'block';
+                }
+                
+                setTimeout(() => {
+                    osintProgressContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            });
+            
+            // Debouncing pour éviter les mises à jour trop fréquentes
+            let osintProgressDebounceTimer = null;
+            let pendingOSINTData = null;
+            const OSINT_DEBOUNCE_MS = 150; // Attendre 150ms avant d'appliquer les mises à jour
+            
+            function applyOSINTProgress(data) {
+                // Ne pas afficher si aucune entreprise (total === 0)
+                if (typeof data.total === 'number' && data.total === 0) {
+                    osintProgressContainer.style.display = 'none';
+                    return;
+                }
+                
+                // Cette fonction applique réellement les mises à jour
+                if (!osintProgressContainer.parentNode) {
+                    if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(osintProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(osintProgressContainer);
+                    } else {
+                        progressContainer.after(osintProgressContainer);
+                    }
+                }
+                osintProgressContainer.style.display = 'block';
+                
+                const message = data.message || '';
+                
+                // Filtrer les messages qui concernent les personnes (photos, localisation, hobbies)
+                const personMessages = [
+                    'Recherche de photos pour',
+                    'Recherche de localisation pour',
+                    'Recherche de hobbies pour',
+                    'Analyse OSINT approfondie pour',
+                    'Recherche de comptes pour',
+                    'Vérification des fuites de données pour'
+                ];
+                
+                const isPersonMessage = personMessages.some(pattern => message.includes(pattern));
+                
+                // Ne pas afficher les messages de personnes au niveau entreprise
+                if (isPersonMessage) {
+                    return; // Ignorer ces messages
+                }
+                
+                // Progression de l'entreprise en cours (utilise task_progress si disponible, sinon progress)
+                const currentProgress = typeof data.task_progress === 'number' ? data.task_progress : 
+                                       (typeof data.progress === 'number' ? data.progress : null);
+                
+                // Progression globale (basée sur current/total)
+                let totalProgress = null;
+                if (typeof data.current === 'number' && typeof data.total === 'number' && data.total > 0) {
+                    totalProgress = Math.round((data.current / data.total) * 100);
+                    osintProgressCountBadge.textContent = `${data.current} / ${data.total} entreprises`;
+                    osintTotalInfo.textContent = `${data.current} / ${data.total} terminées`;
+                } else {
+                    osintProgressCountBadge.textContent = 'En cours...';
+                    osintTotalInfo.textContent = 'En cours...';
+                }
+                
+                // Extraire le domaine depuis l'URL si disponible
+                let domaine = '';
+                let entrepriseName = '';
+                if (data.url) {
+                    try {
+                        const url = new URL(data.url);
+                        domaine = url.hostname.replace('www.', '');
+                    } catch (e) {
+                        const match = data.url.match(/https?:\/\/(?:www\.)?([^\/]+)/);
+                        if (match) {
+                            domaine = match[1];
+                        }
+                    }
+                }
+                
+                if (data.entreprise) {
+                    entrepriseName = data.entreprise;
+                }
+                
+                // Afficher les infos après les labels
+                if (domaine || entrepriseName) {
+                    const currentInfoText = entrepriseName || domaine || '';
+                    osintCurrentInfo.textContent = currentInfoText;
+                } else if (message && !isPersonMessage) {
+                    // Afficher le message si ce n'est pas un message de personne
+                    osintCurrentInfo.textContent = message.length > 40 ? message.substring(0, 37) + '...' : message;
+                } else {
+                    // Afficher "En cours..." si aucune info disponible
+                    osintCurrentInfo.textContent = 'En cours...';
+                }
+                
+                // Mettre à jour la jauge de l'entreprise en cours (utilise task_progress si disponible)
+                if (currentProgress !== null) {
+                    const currentPercent = Math.min(100, Math.max(0, currentProgress));
+                    osintCurrentFill.style.width = currentPercent + '%';
+                    osintCurrentLabelInner.textContent = `${Math.round(currentPercent)}%`;
+                } else {
+                    // Si pas de task_progress, utiliser progress comme fallback
+                    const fallbackProgress = typeof data.progress === 'number' ? data.progress : null;
+                    if (fallbackProgress !== null) {
+                        const currentPercent = Math.min(100, Math.max(0, fallbackProgress));
+                        osintCurrentFill.style.width = currentPercent + '%';
+                        osintCurrentLabelInner.textContent = `${Math.round(currentPercent)}%`;
+                    }
+                }
+                
+                // Mettre à jour la jauge globale (sans throttling car c'est basé sur current/total qui change de manière discrète)
+                if (totalProgress !== null) {
+                    osintTotalFill.style.width = totalProgress + '%';
+                    osintTotalLabelInner.textContent = `${totalProgress}%`;
+                }
+                
+                // Afficher les totaux cumulés OSINT avec un design amélioré
+                const cumulativeTotals = data.cumulative_totals || {};
+                const osintCumulativeContent = document.getElementById('osint-cumulative-content');
+                const osintCumulativeBox = document.getElementById('osint-cumulative-box');
+                
+                if (osintCumulativeContent && osintCumulativeBox && cumulativeTotals) {
+                    // Créer des badges pour chaque type de données
+                    const badges = [];
+                    
+                    if (cumulativeTotals.subdomains > 0) {
+                        badges.push(`<span style="display: inline-block; background: #dbeafe; color: #1e40af; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.subdomains} sous-domaines</span>`);
+                    }
+                    if (cumulativeTotals.emails > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.emails} emails</span>`);
+                    }
+                    if (cumulativeTotals.people > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fce7f3; color: #9f1239; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.people} personnes</span>`);
+                    }
+                    if (cumulativeTotals.dns_records > 0) {
+                        badges.push(`<span style="display: inline-block; background: #e0e7ff; color: #3730a3; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.dns_records} DNS</span>`);
+                    }
+                    if (cumulativeTotals.ssl_analyses > 0) {
+                        badges.push(`<span style="display: inline-block; background: #d1fae5; color: #065f46; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.ssl_analyses} SSL</span>`);
+                    }
+                    if (cumulativeTotals.waf_detections > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.waf_detections} WAF</span>`);
+                    }
+                    if (cumulativeTotals.directories > 0) {
+                        badges.push(`<span style="display: inline-block; background: #f3e8ff; color: #6b21a8; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.directories} répertoires</span>`);
+                    }
+                    if (cumulativeTotals.open_ports > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.open_ports} ports</span>`);
+                    }
+                    if (cumulativeTotals.services > 0) {
+                        badges.push(`<span style="display: inline-block; background: #e0f2fe; color: #0c4a6e; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.services} services</span>`);
+                    }
+                    
+                    if (badges.length > 0) {
+                        osintCumulativeContent.innerHTML = badges.join('');
+                        osintCumulativeBox.style.display = 'block';
+                    } else {
+                        osintCumulativeContent.innerHTML = '<span style="color: #6b7280; font-size: 0.9rem; font-style: italic;">Aucune donnée collectée pour le moment</span>';
+                        osintCumulativeBox.style.display = 'block';
+                    }
+                } else if (osintCumulativeBox) {
+                    osintCumulativeBox.style.display = 'none';
+                }
+            }
+            
+            window.wsManager.socket.on('osint_analysis_progress', function(data) {
+                // Sauvegarder la dernière donnée reçue
+                pendingOSINTData = data;
+                
+                // Annuler le timer précédent s'il existe
+                if (osintProgressDebounceTimer) {
+                    clearTimeout(osintProgressDebounceTimer);
+                }
+                
+                // Programmer l'application de la mise à jour après le délai de debounce
+                osintProgressDebounceTimer = setTimeout(function() {
+                    if (pendingOSINTData) {
+                        applyOSINTProgress(pendingOSINTData);
+                        pendingOSINTData = null;
+                    }
+                    osintProgressDebounceTimer = null;
+                }, OSINT_DEBOUNCE_MS);
+            });
+            
+            window.wsManager.socket.on('osint_analysis_complete', function(data) {
+                // Ne pas afficher si aucune entreprise (total === 0)
+                if (typeof data.total === 'number' && data.total === 0) {
+                    osintProgressContainer.style.display = 'none';
+                    return;
+                }
+                
+                if (!osintProgressContainer.parentNode) {
+                    if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(osintProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(osintProgressContainer);
+                    } else {
+                        progressContainer.after(osintProgressContainer);
+                    }
+                }
+                osintProgressContainer.style.display = 'block';
+                osintCurrentFill.style.width = '100%';
+                osintCurrentLabelInner.textContent = '100%';
+                osintCurrentFill.style.background = 'linear-gradient(90deg, #8b5cf6, #7c3aed)';
+                
+                // Mettre à jour la jauge globale
+                if (typeof data.current === 'number' && typeof data.total === 'number' && data.total > 0) {
+                    const totalProgress = Math.round((data.current / data.total) * 100);
+                    osintTotalFill.style.width = totalProgress + '%';
+                    osintTotalLabelInner.textContent = `${totalProgress}%`;
+                }
+                
+                const current = typeof data.current === 'number' ? data.current : null;
+                const total = typeof data.total === 'number' ? data.total : null;
+                
+                if (current !== null && total !== null && total > 0) {
+                    osintProgressCountBadge.textContent = `${current} / ${total} entreprises`;
+                    osintTotalInfo.textContent = `${current} / ${total} terminées`;
+                    if (current >= total) {
+                        osintDone = true;
+                        osintTotalInfo.textContent = `${total} / ${total} terminées`;
+                    }
+                } else {
+                    osintDone = true;
+                    osintTotalInfo.textContent = 'Terminé';
+                }
+                
+                maybeRedirectAfterAllDone();
+            });
+            
+            window.wsManager.socket.on('osint_analysis_error', function(data) {
+                osintCurrentFill.style.background = '#e74c3c';
+                osintCurrentFill.style.width = '100%';
+                osintCurrentLabelInner.textContent = 'Erreur';
+                osintCurrentInfo.textContent = data.error || 'Erreur lors de l\'analyse OSINT';
+            });
+        }
+    }
+    
     // Configurer l'écoute au chargement et après connexion WebSocket
     setupScrapingListener();
     setupTechnicalListener();
+    setupOSINTListener();
     document.addEventListener('websocket:connected', function() {
         setupScrapingListener();
         setupTechnicalListener();
+        setupOSINTListener();
     });
     
     // Suivi pour la redirection automatique une fois tout terminé
     let excelAnalysisDone = false;
     let scrapingDone = false;
     let technicalDone = false;
+    let osintDone = false;
     let lastScrapingResult = null;
     
     function maybeRedirectAfterAllDone() {
-        if (!scrapingDone || !technicalDone) {
+        if (!scrapingDone || !technicalDone || !osintDone) {
             return;
         }
         // Utiliser l'analysis_id du scraping si disponible pour cibler la liste des entreprises
@@ -688,6 +1084,9 @@
         lastScrapingResult = e.detail || null;
         maybeRedirectAfterAllDone();
     });
+    
+    // Événement pour marquer l'OSINT comme terminé (géré par les listeners WebSocket)
+    // osintDone sera mis à true dans setupOSINTListener quand toutes les analyses OSINT sont terminées
     
     
     document.addEventListener('analysis:error', function(e) {

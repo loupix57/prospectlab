@@ -52,14 +52,14 @@ Le script `start-celery.ps1` lance à la fois le worker Celery et le scheduler C
 .\scripts\windows\start-celery.ps1
 ```
 
-**Ou manuellement :**
+**Ou manuellement (recommande pour les tests) :**
 ```bash
 python run_celery.py
 ```
 
 **Linux/Mac :**
 ```bash
-celery -A celery_app worker --loglevel=info
+celery -A celery_app worker --pool=threads --concurrency=4 --loglevel=info
 ```
 
 ### Configuration Celery
@@ -99,8 +99,8 @@ Analyse un fichier Excel d'entreprises.
 **Parametres :**
 - `filepath` : Chemin du fichier Excel
 - `output_path` : Chemin de sortie (optionnel)
-- `max_workers` : Nombre de threads (defaut: 3)
-- `delay` : Delai entre requetes (defaut: 2.0)
+- `max_workers` : Nombre de threads (defaut: 4, optimisé pour Celery concurrency=4)
+- `delay` : Delai entre requetes (defaut: 0.1, Celery gère la concurrence)
 - `enable_osint` : Activer OSINT (defaut: False)
 
 **Retour :**
@@ -175,17 +175,23 @@ Analyse technique d'un site web.
 - `url` : URL du site
 - `entreprise_id` : ID entreprise (optionnel)
 
-### osint_analysis_task / pentest_analysis_task
-
-Ces taches se trouvent egalement dans `tasks/technical_analysis_tasks.py` :
+### osint_tasks.py
 
 #### osint_analysis_task
 - Analyse OSINT d'un site / organisation, avec enrichissement des personnes.
-- Parametres principaux : `url`, `entreprise_id`, `people_from_scrapers`.
+- Parametres principaux : `url`, `entreprise_id`, `people_from_scrapers`, `emails_from_scrapers`, `social_profiles_from_scrapers`, `phones_from_scrapers`.
 
-#### pentest_analysis_task
-- Analyse de securite (Pentest) d'un site web.
-- Parametres principaux : `url`, `entreprise_id`, `options` (scan_sql, scan_xss, etc.).
+## Suivi temps reel (WebSocket + OSINT)
+
+ProspectLab expose la progression des taches Celery en temps reel via WebSocket, pour le scraping, l analyse technique et l OSINT.  
+Les taches mettent a jour leur etat avec `update_state` (champ `meta`) et le backend WebSocket traduit ces metas en evenements consommes par le front.
+
+- **Scraping** : met a jour `scraping:progress` avec `current`, `total`, `message`, statistiques globales et listes d IDs de taches techniques/OSINT lancees.
+- **Analyse technique** : publie des messages de progression generiques (initialisation, analyse, sauvegarde).
+- **OSINT** : publie des evenements dedies (`osint_analysis_started`, `osint_analysis_progress`, `osint_analysis_complete`, `osint_analysis_error`) consommes par `static/js/preview.js` pour afficher:
+  - une barre de progression par entreprise,
+  - une progression globale X/Y entreprises,
+  - des totaux cumules (sous-domaines, emails, personnes, DNS, SSL, WAF, ports, services).
 
 ### cleanup_tasks.py
 

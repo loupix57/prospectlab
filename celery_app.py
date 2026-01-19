@@ -48,6 +48,7 @@ celery.conf.update(
         'tasks.analysis_tasks',
         'tasks.scraping_tasks',
         'tasks.technical_analysis_tasks',
+        'tasks.osint_tasks',
         'tasks.email_tasks',
         'tasks.cleanup_tasks',
     ),

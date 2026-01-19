@@ -38,7 +38,7 @@ def _safe_update_state(task, task_id, **kwargs):
 
 
 @celery.task(bind=True)
-def analyze_entreprise_task(self, filepath, output_path, max_workers=3, delay=2.0, 
+def analyze_entreprise_task(self, filepath, output_path, max_workers=4, delay=0.1, 
                              enable_osint=False):
     """
     Tâche Celery pour analyser un fichier Excel d'entreprises
@@ -46,12 +46,15 @@ def analyze_entreprise_task(self, filepath, output_path, max_workers=3, delay=2.
     Cette tâche exécute l'analyse complète des entreprises en arrière-plan,
     permettant à l'application Flask de rester réactive.
     
+    Optimisée pour Celery avec --pool=threads --concurrency=4.
+    Celery gère déjà la concurrence, donc délai minimal nécessaire.
+    
     Args:
         self: Instance de la tâche Celery (bind=True)
         filepath (str): Chemin vers le fichier Excel à analyser
         output_path (str): Chemin de sortie pour le fichier analysé
-        max_workers (int): Nombre de threads parallèles (défaut: 3)
-        delay (float): Délai entre requêtes en secondes (défaut: 2.0)
+        max_workers (int): Nombre de threads parallèles (défaut: 4, optimisé pour Celery concurrency=4)
+        delay (float): Délai entre requêtes en secondes (défaut: 0.1, minimal car Celery gère la concurrence)
         enable_osint (bool): Activer l'analyse OSINT (défaut: False)
         
     Returns:

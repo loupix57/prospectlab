@@ -389,7 +389,39 @@ class EmailAnalyzer:
         analysis['type'] = self.detect_email_type(email)
         
         # Tenter d'extraire le nom/prénom
-        analysis['name_info'] = self.extract_name_from_email(email)
+        name_info = self.extract_name_from_email(email)
+        analysis['name_info'] = name_info
+        
+        # Détecter si c'est une personne réelle avec name_validator
+        analysis['is_person'] = False
+        if name_info:
+            try:
+                from services.name_validator import validate_name_pair, is_valid_human_name
+                
+                first_name = name_info.get('first_name')
+                last_name = name_info.get('last_name')
+                full_name = name_info.get('full_name', '')
+                
+                # Si on a un prénom et un nom, valider la paire
+                if first_name and last_name:
+                    validated = validate_name_pair(first_name, last_name)
+                    if validated:
+                        analysis['is_person'] = True
+                        # Mettre à jour name_info avec les versions validées
+                        analysis['name_info'] = {
+                            'first_name': validated[0],
+                            'last_name': validated[1],
+                            'full_name': f'{validated[0]} {validated[1]}'
+                        }
+                # Sinon, valider le nom complet
+                elif full_name and is_valid_human_name(full_name):
+                    analysis['is_person'] = True
+            except ImportError:
+                # name_validator non disponible, continuer sans validation
+                pass
+            except Exception:
+                # Erreur lors de la validation, continuer sans marquer comme personne
+                pass
         
         # Vérifier les enregistrements MX uniquement pour les domaines personnalisés
         # (les fournisseurs connus ont toujours des MX valides)

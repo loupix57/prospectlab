@@ -167,10 +167,11 @@ class ProspectLabWebSocket {
             return;
         }
 
+        // Valeurs optimisées pour Celery avec --pool=threads --concurrency=4
         this.socket.emit('start_analysis', {
             filename: filename,
-            max_workers: options.max_workers || 3,
-            delay: options.delay || 2.0,
+            max_workers: options.max_workers || 4,  // Optimisé pour Celery concurrency=4
+            delay: options.delay || 0.1,             // Délai minimal, Celery gère la concurrence
             enable_osint: options.enable_osint || false
         });
     }

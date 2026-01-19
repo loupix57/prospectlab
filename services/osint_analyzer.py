@@ -9,10 +9,13 @@ import socket
 import json
 import re
 import os
+import logging
 from urllib.parse import urlparse
 from typing import Dict, List, Optional
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 # Importer la configuration
 try:
@@ -57,14 +60,35 @@ class OSINTAnalyzer:
         
         # Vérifier les outils disponibles
         self.tools = {
+            # Reconnaissance de domaines
             'dnsrecon': self._check_tool('dnsrecon'),
             'theharvester': self._check_tool('theharvester'),
             'sublist3r': self._check_tool('sublist3r'),
             'amass': self._check_tool('amass'),
+            'subfinder': self._check_tool('subfinder'),
+            'findomain': self._check_tool('findomain'),
+            'dnsenum': self._check_tool('dnsenum'),
+            'fierce': self._check_tool('fierce'),
+            # Analyse web
             'whatweb': self._check_tool('whatweb'),
             'sslscan': self._check_tool('sslscan'),
+            'testssl': self._check_tool('testssl.sh'),
+            'wafw00f': self._check_tool('wafw00f'),
+            'nikto': self._check_tool('nikto'),
+            'gobuster': self._check_tool('gobuster'),
+            # Recherche de personnes
             'sherlock': self._check_tool('sherlock'),
             'maigret': self._check_tool('maigret'),
+            'phoneinfoga': self._check_tool('phoneinfoga'),
+            'holehe': self._check_tool('holehe'),
+            # Métadonnées
+            'metagoofil': self._check_tool('metagoofil'),
+            'exiftool': self._check_tool('exiftool'),
+            # Frameworks OSINT
+            'recon-ng': self._check_tool('recon-ng'),
+            # APIs CLI
+            'shodan': self._check_tool('shodan'),
+            'censys': self._check_tool('censys'),
         }
     
     def _check_tool(self, tool_name: str) -> bool:
@@ -338,45 +362,91 @@ class OSINTAnalyzer:
         except Exception as e:
             return {'error': str(e)}
     
-    def harvest_emails(self, domain: str, progress_callback=None) -> List[str]:
+    def harvest_emails(self, domain: str, progress_callback=None, names: List[Dict] = None) -> List[str]:
         """
         Récupère des emails liés au domaine avec TheHarvester
-        Retourne aussi les noms de personnes trouvés
+        Optimisé avec les noms de personnes si disponibles
+        
+        Args:
+            domain: Domaine à analyser
+            progress_callback: Callback pour la progression
+            names: Liste de dictionnaires avec first_name, last_name, full_name (optionnel)
+        
+        Returns:
+            Liste d'emails trouvés
         """
         emails = set()
         
         if not self.tools['theharvester']:
             return []
         
-        # TheHarvester avec plusieurs sources incluant LinkedIn pour les personnes
-        sources = ['google', 'bing', 'linkedin', 'twitter', 'github']
-        for source in sources:
-            if progress_callback:
-                progress_callback(f'Recherche d\'emails via {source}...')
+        # Si on a des noms, utiliser une recherche plus ciblée et rapide
+        if names and len(names) > 0:
+            # Utiliser seulement les sources les plus rapides et efficaces avec les noms
+            sources = ['google', 'bing']  # Sources rapides pour recherche avec noms
             
-            result = self._run_wsl_command([
-                'theHarvester',
-                '-d', domain,
-                '-b', source,
-                '-l', '100'  # Augmenter le nombre de résultats
-            ], timeout=60)
-            
-            if result.get('success'):
-                for line in result['stdout'].split('\n'):
-                    # Extraire les emails
-                    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-                    found_emails = re.findall(email_pattern, line)
-                    for email in found_emails:
-                        if domain in email:
-                            emails.add(email.lower())
+            for name_data in names[:5]:  # Limiter à 5 noms pour éviter trop de requêtes
+                first_name = name_data.get('first_name', '')
+                last_name = name_data.get('last_name', '')
+                full_name = name_data.get('full_name', f'{first_name} {last_name}'.strip())
+                
+                if not first_name or not last_name:
+                    continue
+                
+                for source in sources:
+                    if progress_callback:
+                        progress_callback(f'Recherche d\'emails pour {full_name} via {source}...')
+                    
+                    # Recherche ciblée avec le nom complet
+                    result = self._run_wsl_command([
+                        'theHarvester',
+                        '-d', domain,
+                        '-b', source,
+                        '-l', '50',  # Réduire le nombre de résultats pour aller plus vite
+                        '-s', '0'  # Start à 0
+                    ], timeout=30)  # Réduire le timeout
+                    
+                    if result.get('success'):
+                        for line in result['stdout'].split('\n'):
+                            # Vérifier si le nom apparaît dans la ligne (recherche ciblée)
+                            if first_name.lower() in line.lower() or last_name.lower() in line.lower():
+                                email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+                                found_emails = re.findall(email_pattern, line)
+                                for email in found_emails:
+                                    if domain in email:
+                                        emails.add(email.lower())
+        else:
+            # Recherche générique sans noms (plus lente)
+            sources = ['google', 'bing', 'linkedin', 'twitter', 'github']
+            for source in sources:
+                if progress_callback:
+                    progress_callback(f'Recherche d\'emails via {source}...')
+                
+                result = self._run_wsl_command([
+                    'theHarvester',
+                    '-d', domain,
+                    '-b', source,
+                    '-l', '100'  # Augmenter le nombre de résultats
+                ], timeout=60)
+                
+                if result.get('success'):
+                    for line in result['stdout'].split('\n'):
+                        # Extraire les emails
+                        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+                        found_emails = re.findall(email_pattern, line)
+                        for email in found_emails:
+                            if domain in email:
+                                emails.add(email.lower())
         
         return sorted(list(emails))
     
     def find_people_from_emails(self, emails: List[str], domain: str) -> List[Dict]:
         """
         Extrait les noms de personnes depuis les emails trouvés
-        Retourne une liste de personnes avec leurs informations
+        Retourne une liste de personnes avec leurs informations (filtrées pour ne garder que les noms valides)
         """
+        from services.name_validator import is_valid_human_name
+        
         people = []
         
         for email in emails:
@@ -392,15 +462,20 @@ class OSINTAnalyzer:
                     if len(part) > 2 and part.isalpha():
                         name_parts.append(part.capitalize())
             
+            person_name = ' '.join(name_parts) if name_parts else local_part
+            
+            # Filtrer les noms invalides (lieux, entreprises, fonctions, etc.)
+            if not person_name or not is_valid_human_name(person_name):
+                continue
+            
             person = {
                 'email': email,
-                'name': ' '.join(name_parts) if name_parts else local_part,
+                'name': person_name,
                 'username': local_part,
                 'domain': domain
             }
             
-            if person['name']:
-                people.append(person)
+            people.append(person)
         
         return people
     
@@ -505,6 +580,469 @@ class OSINTAnalyzer:
                         profiles[username] = found_profiles
         
         return profiles
+    
+    def analyze_phones_osint(self, phones: List[str], progress_callback=None) -> Dict:
+        """
+        Analyse OSINT approfondie des numéros de téléphone
+        Utilise PhoneInfoga et d'autres sources pour trouver des informations
+        
+        Args:
+            phones: Liste des numéros de téléphone à analyser
+            progress_callback: Callback pour la progression
+        
+        Returns:
+            Dictionnaire avec les informations trouvées pour chaque téléphone
+        """
+        phone_data = {}
+        
+        for phone in phones[:5]:  # Limiter à 5 pour éviter les timeouts
+            if progress_callback:
+                progress_callback(f'Analyse OSINT du téléphone {phone}...')
+            
+            phone_info = {
+                'phone': phone,
+                'carrier': None,
+                'location': None,
+                'line_type': None,
+                'valid': None,
+                'social_profiles': [],
+                'data_breaches': [],
+                'sources': []
+            }
+            
+            # Utiliser PhoneInfoga si disponible
+            if self.tools.get('phoneinfoga'):
+                try:
+                    result = self._run_wsl_command([
+                        'phoneinfoga',
+                        'scan',
+                        '--number', phone,
+                        '--output', 'json'
+                    ], timeout=30)
+                    
+                    if result.get('success'):
+                        try:
+                            phoneinfoga_data = json.loads(result['stdout'])
+                            if isinstance(phoneinfoga_data, dict):
+                                phone_info['carrier'] = phoneinfoga_data.get('carrier')
+                                phone_info['location'] = phoneinfoga_data.get('location')
+                                phone_info['line_type'] = phoneinfoga_data.get('line_type')
+                                phone_info['valid'] = phoneinfoga_data.get('valid')
+                                phone_info['sources'].append('phoneinfoga')
+                        except:
+                            # Parser le texte si JSON échoue
+                            output = result['stdout']
+                            if 'Carrier:' in output:
+                                carrier_match = re.search(r'Carrier:\s*([^\n]+)', output)
+                                if carrier_match:
+                                    phone_info['carrier'] = carrier_match.group(1).strip()
+                            if 'Location:' in output:
+                                loc_match = re.search(r'Location:\s*([^\n]+)', output)
+                                if loc_match:
+                                    phone_info['location'] = loc_match.group(1).strip()
+                except Exception as e:
+                    logger.debug(f'Erreur PhoneInfoga pour {phone}: {e}')
+            
+            # Recherche via APIs publiques
+            try:
+                search_results = self._search_phone_online(phone)
+                if search_results:
+                    phone_info.update(search_results)
+            except Exception as e:
+                logger.debug(f'Erreur recherche web pour {phone}: {e}')
+            
+            phone_data[phone] = phone_info
+        
+        return phone_data
+    
+    def _search_phone_online(self, phone: str) -> Dict:
+        """
+        Recherche basique d'un téléphone en ligne
+        Utilise des moteurs de recherche publics
+        """
+        results = {}
+        
+        try:
+            clean_phone = re.sub(r'[^\d+]', '', phone)
+            search_query = f'"{clean_phone}"'
+            search_url = f'https://html.duckduckgo.com/html/?q={search_query}'
+            
+            response = requests.get(search_url, headers=self.headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                results['web_mentions'] = len(soup.find_all('a', href=True))
+        except Exception as e:
+            logger.debug(f'Erreur recherche web téléphone: {e}')
+        
+        return results
+    
+    def analyze_people_osint(self, people: List[Dict], domain: str, progress_callback=None) -> Dict:
+        """
+        Analyse OSINT approfondie sur les personnes
+        Recherche famille, localisation, historique, photos, hobbies, etc.
+        
+        Args:
+            people: Liste des personnes à analyser (dict avec name, email, etc.)
+            domain: Domaine de l'entreprise
+            progress_callback: Callback pour la progression
+        
+        Returns:
+            Dictionnaire avec les informations enrichies pour chaque personne
+        """
+        from services.name_validator import is_valid_human_name
+        
+        enriched_people = {}
+        
+        # Filtrer les personnes avec des noms invalides avant l'analyse
+        valid_people = [
+            person for person in people
+            if person.get('name') and is_valid_human_name(person.get('name', ''))
+        ]
+        
+        for person in valid_people[:5]:  # Limiter à 5
+            person_name = person.get('name', '')
+            person_email = person.get('email', '')
+            person_linkedin = person.get('linkedin_url', '')
+            
+            if progress_callback:
+                progress_callback(f'Analyse OSINT approfondie pour {person_name}...')
+            
+            person_data = {
+                'original': person,
+                'location': None,
+                'location_city': None,
+                'location_country': None,
+                'location_address': None,
+                'location_latitude': None,
+                'location_longitude': None,
+                'age_range': None,
+                'birth_date': None,
+                'family_members': [],
+                'social_profiles': {},
+                'data_breaches': [],
+                'professional_history': [],
+                'addresses': [],
+                'photos': [],
+                'hobbies': [],
+                'interests': [],
+                'education': None,
+                'bio': None,
+                'languages': [],
+                'skills': [],
+                'certifications': [],
+                'sources': []
+            }
+            
+            # Recherche via Holehe pour les emails (comptes sur différents sites)
+            if person_email and self.tools.get('holehe'):
+                try:
+                    if progress_callback:
+                        progress_callback(f'Recherche de comptes pour {person_email}...')
+                    result = self._run_wsl_command([
+                        'holehe',
+                        person_email,
+                        '--only-used'
+                    ], timeout=30)
+                    
+                    if result.get('success'):
+                        output = result['stdout']
+                        accounts = []
+                        for line in output.split('\n'):
+                            if '[' in line and ']' in line:
+                                site_match = re.search(r'\[\*\]\s*([^\s]+)', line)
+                                if site_match:
+                                    accounts.append(site_match.group(1).strip())
+                        
+                        if accounts:
+                            person_data['social_profiles']['holehe'] = accounts
+                            person_data['sources'].append('holehe')
+                except Exception as e:
+                    logger.debug(f'Erreur Holehe pour {person_email}: {e}')
+            
+            # Recherche de photos
+            if person_name or person_email:
+                try:
+                    if progress_callback:
+                        progress_callback(f'Recherche de photos pour {person_name}...')
+                    photos = self._search_person_photos(person_name, person_email, domain)
+                    if photos:
+                        person_data['photos'] = photos
+                        person_data['sources'].append('photo_search')
+                except Exception as e:
+                    logger.debug(f'Erreur recherche photos: {e}')
+            
+            # Recherche de localisation
+            if person_name:
+                try:
+                    if progress_callback:
+                        progress_callback(f'Recherche de localisation pour {person_name}...')
+                    location_info = self._search_person_location(person_name, domain)
+                    if location_info:
+                        person_data.update(location_info)
+                        person_data['sources'].append('location_search')
+                except Exception as e:
+                    logger.debug(f'Erreur recherche localisation: {e}')
+            
+            # Recherche de hobbies et intérêts
+            if person_name or person_linkedin:
+                try:
+                    if progress_callback:
+                        progress_callback(f'Recherche de hobbies pour {person_name}...')
+                    hobbies_info = self._search_person_hobbies(person_name, person_linkedin)
+                    if hobbies_info:
+                        person_data['hobbies'] = hobbies_info.get('hobbies', [])
+                        person_data['interests'] = hobbies_info.get('interests', [])
+                        person_data['sources'].append('hobbies_search')
+                except Exception as e:
+                    logger.debug(f'Erreur recherche hobbies: {e}')
+            
+            # Recherche de fuites de données (data breaches)
+            if person_email:
+                try:
+                    if progress_callback:
+                        progress_callback(f'Vérification des fuites de données pour {person_email}...')
+                    breaches = self._check_data_breaches(person_email)
+                    if breaches:
+                        person_data['data_breaches'] = breaches
+                        person_data['sources'].append('data_breaches')
+                except Exception as e:
+                    logger.debug(f'Erreur vérification fuites: {e}')
+            
+            # Recherche web pour trouver des informations publiques
+            if person_name:
+                try:
+                    web_info = self._search_person_online(person_name, domain)
+                    if web_info:
+                        person_data.update(web_info)
+                except Exception as e:
+                    logger.debug(f'Erreur recherche web pour {person_name}: {e}')
+            
+            enriched_people[person_name or person_email] = person_data
+        
+        return enriched_people
+    
+    def _search_person_photos(self, name: str, email: str, domain: str) -> List[str]:
+        """
+        Recherche de photos d'une personne
+        Utilise des moteurs de recherche d'images
+        """
+        photos = []
+        
+        try:
+            # Recherche via Google Images (via DuckDuckGo)
+            search_query = f'"{name}"'
+            if domain:
+                search_query += f' "{domain}"'
+            
+            search_url = f'https://html.duckduckgo.com/html/?q={search_query}'
+            response = requests.get(search_url, headers=self.headers, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Chercher des liens d'images
+                for img in soup.find_all('img'):
+                    src = img.get('src') or img.get('data-src')
+                    if src and any(ext in src.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif']):
+                        if src.startswith('http'):
+                            photos.append(src)
+                        elif src.startswith('//'):
+                            photos.append('https:' + src)
+        except Exception as e:
+            logger.debug(f'Erreur recherche photos: {e}')
+        
+        return photos[:10]  # Limiter à 10 photos
+    
+    def _search_person_location(self, name: str, domain: str) -> Dict:
+        """
+        Recherche de localisation d'une personne
+        """
+        location_data = {}
+        
+        try:
+            # Recherche web pour trouver des indices de localisation
+            search_query = f'"{name}" location address'
+            if domain:
+                search_query += f' "{domain}"'
+            
+            search_url = f'https://html.duckduckgo.com/html/?q={search_query}'
+            response = requests.get(search_url, headers=self.headers, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                text = soup.get_text().lower()
+                
+                # Chercher des indices de localisation (ville, pays)
+                # Note: Cette méthode est basique, peut être améliorée avec des APIs
+                city_patterns = ['paris', 'lyon', 'marseille', 'toulouse', 'nice', 'nantes']
+                for city in city_patterns:
+                    if city in text:
+                        location_data['location_city'] = city.capitalize()
+                        break
+        except Exception as e:
+            logger.debug(f'Erreur recherche localisation: {e}')
+        
+        return location_data
+    
+    def _search_person_hobbies(self, name: str, linkedin_url: str) -> Dict:
+        """
+        Recherche de hobbies et intérêts d'une personne
+        """
+        hobbies_data = {
+            'hobbies': [],
+            'interests': []
+        }
+        
+        try:
+            # Recherche web pour trouver des hobbies mentionnés
+            search_query = f'"{name}" hobbies interests'
+            if linkedin_url:
+                search_query += f' "{linkedin_url}"'
+            
+            search_url = f'https://html.duckduckgo.com/html/?q={search_query}'
+            response = requests.get(search_url, headers=self.headers, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                text = soup.get_text().lower()
+                
+                # Hobbies communs à chercher
+                common_hobbies = ['photography', 'reading', 'traveling', 'music', 'sports', 
+                                'cooking', 'gaming', 'hiking', 'cycling', 'swimming',
+                                'photographie', 'lecture', 'voyage', 'musique', 'sport',
+                                'cuisine', 'jeux', 'randonnée', 'vélo', 'natation']
+                
+                found_hobbies = []
+                for hobby in common_hobbies:
+                    if hobby in text:
+                        found_hobbies.append(hobby.capitalize())
+                
+                hobbies_data['hobbies'] = found_hobbies[:10]  # Limiter à 10
+        except Exception as e:
+            logger.debug(f'Erreur recherche hobbies: {e}')
+        
+        return hobbies_data
+    
+    def _check_data_breaches(self, email: str) -> List[Dict]:
+        """
+        Vérifie si un email a été compromis dans des fuites de données
+        Utilise Have I Been Pwned API (gratuite)
+        """
+        breaches = []
+        
+        try:
+            # API Have I Been Pwned (gratuite, pas besoin de clé API pour la recherche)
+            response = requests.get(
+                f'https://haveibeenpwned.com/api/v3/breachedaccount/{email}',
+                headers={'User-Agent': 'ProspectLab-OSINT'},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    for breach in data:
+                        breaches.append({
+                            'name': breach.get('Name', ''),
+                            'domain': breach.get('Domain', ''),
+                            'breach_date': breach.get('BreachDate', ''),
+                            'data_classes': breach.get('DataClasses', [])
+                        })
+        except Exception as e:
+            # L'API peut retourner 404 si l'email n'a pas été compromis
+            if '404' not in str(e):
+                logger.debug(f'Erreur vérification fuites: {e}')
+        
+        return breaches
+    
+    def _search_person_online(self, name: str, domain: str) -> Dict:
+        """
+        Recherche web basique d'une personne
+        Utilise des moteurs de recherche publics
+        """
+        results = {}
+        
+        try:
+            search_query = f'"{name}" "{domain}"'
+            search_url = f'https://html.duckduckgo.com/html/?q={search_query}'
+            
+            response = requests.get(search_url, headers=self.headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                social_links = []
+                for link in soup.find_all('a', href=True):
+                    href = link['href']
+                    if any(platform in href.lower() for platform in ['linkedin', 'twitter', 'facebook', 'github']):
+                        social_links.append(href)
+                
+                if social_links:
+                    results['social_profiles'] = {'web_search': social_links}
+                    results['sources'] = ['web_search']
+        except Exception as e:
+            logger.debug(f'Erreur recherche web personne: {e}')
+        
+        return results
+    
+    def get_ip_geolocation(self, ip: str) -> Dict:
+        """
+        Récupère la géolocalisation d'une adresse IP
+        Utilise des APIs publiques gratuites
+        
+        Args:
+            ip: Adresse IP à géolocaliser
+        
+        Returns:
+            Dictionnaire avec les informations de géolocalisation
+        """
+        geolocation = {
+            'ip': ip,
+            'country': None,
+            'region': None,
+            'city': None,
+            'latitude': None,
+            'longitude': None,
+            'isp': None,
+            'timezone': None
+        }
+        
+        # Essayer ipapi.co (gratuit, 1000 requêtes/jour)
+        try:
+            response = requests.get(f'https://ipapi.co/{ip}/json/', headers=self.headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if 'error' not in data:
+                    geolocation['country'] = data.get('country_name')
+                    geolocation['region'] = data.get('region')
+                    geolocation['city'] = data.get('city')
+                    geolocation['latitude'] = data.get('latitude')
+                    geolocation['longitude'] = data.get('longitude')
+                    geolocation['isp'] = data.get('org')
+                    geolocation['timezone'] = data.get('timezone')
+                    geolocation['source'] = 'ipapi.co'
+                    return geolocation
+        except Exception as e:
+            logger.debug(f'Erreur ipapi.co: {e}')
+        
+        # Fallback: ip-api.com (gratuit, 45 requêtes/min)
+        try:
+            response = requests.get(f'http://ip-api.com/json/{ip}', headers=self.headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    geolocation['country'] = data.get('country')
+                    geolocation['region'] = data.get('regionName')
+                    geolocation['city'] = data.get('city')
+                    geolocation['latitude'] = data.get('lat')
+                    geolocation['longitude'] = data.get('lon')
+                    geolocation['isp'] = data.get('isp')
+                    geolocation['timezone'] = data.get('timezone')
+                    geolocation['source'] = 'ip-api.com'
+                    return geolocation
+        except Exception as e:
+            logger.debug(f'Erreur ip-api.com: {e}')
+        
+        return geolocation if geolocation.get('country') else None
     
     def search_people_osint(self, domain: str, emails: List[str], progress_callback=None) -> Dict:
         """
@@ -823,6 +1361,315 @@ class OSINTAnalyzer:
         
         return tech_info
     
+    def _analyze_ssl_details(self, domain: str, progress_callback=None) -> List[Dict]:
+        """
+        Analyse SSL/TLS détaillée avec testssl.sh
+        Retourne une liste de dictionnaires avec les détails SSL
+        """
+        ssl_details = []
+        
+        if not self.tools['testssl']:
+            return ssl_details
+        
+        if progress_callback:
+            progress_callback('Analyse SSL/TLS détaillée avec testssl.sh...')
+        
+        try:
+            result = self._run_wsl_command(['testssl.sh', '--json', domain], timeout=60)
+            if result.get('success'):
+                output = result['stdout']
+                # Parser le JSON de testssl.sh
+                try:
+                    json_data = json.loads(output)
+                    if isinstance(json_data, list):
+                        for item in json_data:
+                            ssl_details.append({
+                                'host': domain,
+                                'port': item.get('port', 443),
+                                'certificate_valid': item.get('severity') != 'CRITICAL',
+                                'certificate_issuer': item.get('finding'),
+                                'certificate_subject': item.get('id'),
+                                'certificate_expiry': item.get('expiry'),
+                                'protocol_version': item.get('protocol'),
+                                'cipher_suites': item.get('cipher'),
+                                'vulnerabilities': item.get('severity'),
+                                'grade': item.get('grade'),
+                                'details_json': json.dumps(item)
+                            })
+                except json.JSONDecodeError:
+                    # Si ce n'est pas du JSON, parser le texte
+                    if 'TLS 1.3' in output:
+                        ssl_details.append({
+                            'host': domain,
+                            'port': 443,
+                            'protocol_version': 'TLS 1.3',
+                            'certificate_valid': True,
+                            'details_json': output[:1000]  # Limiter la taille
+                        })
+        except Exception as e:
+            logger.debug(f'Erreur analyse SSL détaillée: {e}')
+        
+        return ssl_details
+    
+    def _detect_waf(self, url: str, progress_callback=None) -> List[Dict]:
+        """
+        Détecte les WAF (Web Application Firewall) avec wafw00f
+        """
+        waf_detections = []
+        
+        if not self.tools['wafw00f']:
+            return waf_detections
+        
+        if progress_callback:
+            progress_callback('Détection des WAF avec wafw00f...')
+        
+        try:
+            result = self._run_wsl_command(['wafw00f', url], timeout=30)
+            if result.get('success'):
+                output = result['stdout']
+                # Parser les résultats wafw00f
+                if 'is behind' in output.lower() or 'is protected by' in output.lower():
+                    waf_match = re.search(r'(?:is behind|is protected by)\s+([A-Za-z0-9\s-]+)', output, re.IGNORECASE)
+                    if waf_match:
+                        waf_name = waf_match.group(1).strip()
+                        waf_detections.append({
+                            'url': url,
+                            'waf_name': waf_name,
+                            'waf_vendor': waf_name.split()[0] if waf_name else None,
+                            'detected': True,
+                            'detection_method': 'wafw00f',
+                            'details_json': json.dumps({'output': output[:500]})
+                        })
+                elif 'no waf detected' in output.lower():
+                    waf_detections.append({
+                        'url': url,
+                        'waf_name': None,
+                        'waf_vendor': None,
+                        'detected': False,
+                        'detection_method': 'wafw00f',
+                        'details_json': json.dumps({'output': output[:500]})
+                    })
+        except Exception as e:
+            logger.debug(f'Erreur détection WAF: {e}')
+        
+        return waf_detections
+    
+    def _discover_directories(self, url: str, progress_callback=None) -> List[Dict]:
+        """
+        Découvre les répertoires avec Gobuster
+        """
+        directories = []
+        
+        if not self.tools['gobuster']:
+            return directories
+        
+        if progress_callback:
+            progress_callback('Découverte des répertoires avec Gobuster...')
+        
+        try:
+            # Utiliser une wordlist commune
+            result = self._run_wsl_command([
+                'gobuster', 'dir', '-u', url, '-w', '/usr/share/wordlists/dirb/common.txt', 
+                '--no-error', '-q', '-t', '10'
+            ], timeout=60)
+            
+            if result.get('success'):
+                output = result['stdout']
+                for line in output.split('\n'):
+                    if line.strip() and not line.startswith('='):
+                        # Parser les résultats gobuster
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            path = parts[0] if parts[0].startswith('/') else '/' + parts[0]
+                            status_code = parts[1] if parts[1].isdigit() else None
+                            directories.append({
+                                'path': path,
+                                'status_code': int(status_code) if status_code else None,
+                                'size': parts[2] if len(parts) > 2 else None,
+                                'discovered_by': 'gobuster'
+                            })
+        except Exception as e:
+            logger.debug(f'Erreur découverte répertoires: {e}')
+        
+        return directories
+    
+    def _scan_ports_and_services(self, domain: str, ip: str = None, progress_callback=None) -> Dict:
+        """
+        Scanne les ports et services avec Shodan et Censys
+        Retourne un dictionnaire avec open_ports, services et certificates
+        """
+        result = {
+            'open_ports': [],
+            'services': [],
+            'certificates': []
+        }
+        
+        if not ip:
+            try:
+                ip = socket.gethostbyname(domain)
+            except:
+                return result
+        
+        # Shodan
+        if self.tools['shodan']:
+            if progress_callback:
+                progress_callback('Scan Shodan...')
+            try:
+                shodan_result = self._run_wsl_command(['shodan', 'host', ip], timeout=30)
+                if shodan_result.get('success'):
+                    output = shodan_result['stdout']
+                    # Parser les résultats Shodan
+                    port_pattern = r'(\d+)\s+([^\s]+)\s+(.+)'
+                    for match in re.finditer(port_pattern, output):
+                        port = int(match.group(1))
+                        service = match.group(2)
+                        banner = match.group(3)
+                        result['open_ports'].append({
+                            'ip': ip,
+                            'port': port,
+                            'protocol': 'tcp',
+                            'state': 'open',
+                            'discovered_by': 'shodan'
+                        })
+                        result['services'].append({
+                            'ip': ip,
+                            'port': port,
+                            'service_name': service,
+                            'banner': banner[:500],
+                            'discovered_by': 'shodan'
+                        })
+            except Exception as e:
+                logger.debug(f'Erreur scan Shodan: {e}')
+        
+        # Censys
+        if self.tools['censys']:
+            if progress_callback:
+                progress_callback('Scan Censys...')
+            try:
+                censys_result = self._run_wsl_command(['censys', 'search', f'ip:{ip}'], timeout=30)
+                if censys_result.get('success'):
+                    output = censys_result['stdout']
+                    # Parser les résultats Censys (format JSON possible)
+                    try:
+                        data = json.loads(output)
+                        if isinstance(data, list):
+                            for item in data:
+                                port = item.get('port', 443)
+                                result['open_ports'].append({
+                                    'ip': ip,
+                                    'port': port,
+                                    'protocol': 'tcp',
+                                    'state': 'open',
+                                    'discovered_by': 'censys'
+                                })
+                    except json.JSONDecodeError:
+                        # Parser texte
+                        port_pattern = r'port[:\s]+(\d+)'
+                        for match in re.finditer(port_pattern, output, re.IGNORECASE):
+                            port = int(match.group(1))
+                            result['open_ports'].append({
+                                'ip': ip,
+                                'port': port,
+                                'protocol': 'tcp',
+                                'state': 'open',
+                                'discovered_by': 'censys'
+                            })
+            except Exception as e:
+                logger.debug(f'Erreur scan Censys: {e}')
+        
+        return result
+    
+    def _search_document_metadata(self, domain: str, progress_callback=None) -> List[Dict]:
+        """
+        Recherche les métadonnées de documents avec Metagoofil
+        """
+        document_metadata = []
+        
+        if not self.tools['metagoofil']:
+            return document_metadata
+        
+        if progress_callback:
+            progress_callback('Recherche des métadonnées de documents avec Metagoofil...')
+        
+        try:
+            result = self._run_wsl_command(['metagoofil', '-d', domain, '-t', 'pdf,doc,docx,xls,xlsx', '-l', '20'], timeout=60)
+            if result.get('success'):
+                output = result['stdout']
+                # Parser les résultats Metagoofil
+                current_doc = {}
+                for line in output.split('\n'):
+                    if 'File:' in line:
+                        if current_doc:
+                            document_metadata.append(current_doc)
+                        current_doc = {'file_name': line.replace('File:', '').strip()}
+                    elif ':' in line and current_doc:
+                        key, value = line.split(':', 1)
+                        key = key.strip().lower().replace(' ', '_')
+                        value = value.strip()
+                        current_doc[key] = value
+                
+                if current_doc:
+                    document_metadata.append(current_doc)
+        except Exception as e:
+            logger.debug(f'Erreur recherche métadonnées documents: {e}')
+        
+        return document_metadata
+    
+    def _search_image_metadata(self, url: str, progress_callback=None) -> List[Dict]:
+        """
+        Recherche les métadonnées d'images avec ExifTool
+        """
+        image_metadata = []
+        
+        if not self.tools['exiftool']:
+            return image_metadata
+        
+        if progress_callback:
+            progress_callback('Recherche des métadonnées d\'images avec ExifTool...')
+        
+        try:
+            # Télécharger la page et extraire les URLs d'images
+            response = requests.get(url, headers=self.headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                img_urls = []
+                for img in soup.find_all('img', src=True):
+                    img_url = img['src']
+                    if not img_url.startswith('http'):
+                        img_url = url + img_url if img_url.startswith('/') else url + '/' + img_url
+                    img_urls.append(img_url)
+                
+                # Analyser les 5 premières images avec ExifTool
+                for img_url in img_urls[:5]:
+                    try:
+                        result = self._run_wsl_command(['exiftool', '-j', img_url], timeout=10)
+                        if result.get('success'):
+                            output = result['stdout']
+                            try:
+                                exif_data = json.loads(output)
+                                if isinstance(exif_data, list) and len(exif_data) > 0:
+                                    exif = exif_data[0]
+                                    image_metadata.append({
+                                        'image_url': img_url,
+                                        'camera_make': exif.get('Make'),
+                                        'camera_model': exif.get('Model'),
+                                        'date_taken': exif.get('DateTimeOriginal') or exif.get('CreateDate'),
+                                        'gps_latitude': exif.get('GPSLatitude'),
+                                        'gps_longitude': exif.get('GPSLongitude'),
+                                        'gps_altitude': exif.get('GPSAltitude'),
+                                        'location_description': exif.get('Location'),
+                                        'software': exif.get('Software'),
+                                        'metadata_json': json.dumps(exif)
+                                    })
+                            except json.JSONDecodeError:
+                                pass
+                    except:
+                        continue
+        except Exception as e:
+            logger.debug(f'Erreur recherche métadonnées images: {e}')
+        
+        return image_metadata
+    
     def enrich_people_from_scrapers(self, people_list: List[Dict], domain: str, progress_callback=None) -> List[Dict]:
         """
         Enrichit les personnes trouvées par les scrapers avec des données OSINT
@@ -906,7 +1753,9 @@ class OSINTAnalyzer:
         
         return enriched_people
     
-    def analyze_osint(self, url: str, progress_callback=None, people_from_scrapers=None) -> Dict:
+    def analyze_osint(self, url: str, progress_callback=None, people_from_scrapers=None,
+                     emails_from_scrapers=None, social_profiles_from_scrapers=None,
+                     phones_from_scrapers=None, names_from_scraper_emails=None) -> Dict:
         """
         Analyse OSINT complète d'un domaine/URL
         Retourne toutes les informations collectées
@@ -915,6 +1764,9 @@ class OSINTAnalyzer:
             url: URL à analyser
             progress_callback: Callback pour la progression
             people_from_scrapers: Liste des personnes trouvées par les scrapers (optionnel)
+            emails_from_scrapers: Liste des emails trouvés par les scrapers (optionnel)
+            social_profiles_from_scrapers: Liste des profils sociaux trouvés par les scrapers (optionnel)
+            phones_from_scrapers: Liste des téléphones trouvés par les scrapers (optionnel)
         """
         parsed = urlparse(url)
         domain = parsed.netloc or parsed.path.split('/')[0]
@@ -932,7 +1784,13 @@ class OSINTAnalyzer:
             'ssl_info': {},
             'technologies': {},
             'ip_info': {},
-            'summary': {}
+            'summary': {},
+            'from_scrapers': {
+                'emails_count': len(emails_from_scrapers or []),
+                'people_count': len(people_from_scrapers or []),
+                'social_profiles_count': len(social_profiles_from_scrapers or []),
+                'phones_count': len(phones_from_scrapers or [])
+            }
         }
         
         # Découverte de sous-domaines
@@ -961,23 +1819,134 @@ class OSINTAnalyzer:
         except Exception as e:
             results['whois_error'] = str(e)
         
-        # Emails
-        if progress_callback:
-            progress_callback('Collecte d\'emails...')
+        # Emails : utiliser ceux du scraper si disponibles, sinon chercher avec optimisation
         try:
-            results['emails'] = self.harvest_emails(domain, progress_callback)
+            if emails_from_scrapers:
+                # 1) On part des emails trouvés par le scraper
+                if progress_callback:
+                    progress_callback(f'Utilisation de {len(emails_from_scrapers)} email(s) du scraper...')
+                results['emails'] = list(set(emails_from_scrapers))  # Dédupliquer
+                results['emails_from_scrapers'] = True
+                
+                # 2) Si on a des noms extraits des emails, chercher des emails supplémentaires avec ces noms
+                if names_from_scraper_emails and len(names_from_scraper_emails) > 0:
+                    if progress_callback:
+                        progress_callback(
+                            f'Recherche d\'emails supplémentaires avec {len(names_from_scraper_emails)} nom(s) trouvé(s)...'
+                        )
+                    try:
+                        additional_emails = self.harvest_emails(
+                            domain,
+                            progress_callback,
+                            names=names_from_scraper_emails
+                        )
+                        existing_emails_set = set(e.lower() for e in results['emails'])
+                        for email in additional_emails:
+                            email_lower = email.lower()
+                            if email_lower not in existing_emails_set:
+                                results['emails'].append(email)
+                                existing_emails_set.add(email_lower)
+                    except Exception as e:
+                        logger.warning(
+                            f'Erreur lors de la recherche d\'emails supplémentaires avec les noms: {e}'
+                        )
+            else:
+                # Pas d'emails du scraper -> on fait une collecte classique
+                if progress_callback:
+                    progress_callback('Collecte d\'emails...')
+                harvested_emails = self.harvest_emails(
+                    domain,
+                    progress_callback,
+                    names=names_from_scraper_emails
+                )
+                results['emails'] = harvested_emails
+                results['emails_from_scrapers'] = False
         except Exception as e:
+            # En cas d'erreur, ne pas écraser complètement mais au pire laisser la liste existante
+            logger.warning(f'Erreur lors de la collecte d\'emails: {e}')
             results['emails_error'] = str(e)
+            if not isinstance(results.get('emails'), list):
+                results['emails'] = []
         
-        # Recherche de personnes et profils sociaux
+        # Recherche de personnes et profils sociaux : enrichir celles du scraper
         if progress_callback:
-            progress_callback('Recherche de personnes liées à l\'entreprise...')
+            progress_callback('Enrichissement des personnes avec OSINT...')
         try:
-            people_data = self.search_people_osint(domain, results['emails'], progress_callback)
-            results['people'] = people_data
+            if people_from_scrapers:
+                # Si on a des personnes du scraper, les enrichir puis construire le résumé
+                enriched_people = self.enrich_people_from_scrapers(
+                    people_from_scrapers,
+                    domain,
+                    progress_callback
+                )
+                results['people'] = {
+                    'from_scrapers': enriched_people,
+                    'people': enriched_people,
+                    'summary': {
+                        'total_people': len(enriched_people),
+                        'with_emails': len([p for p in enriched_people if p.get('email')]),
+                        'with_linkedin': len([p for p in enriched_people if p.get('linkedin_url')]),
+                        'with_social_profiles': len([p for p in enriched_people if p.get('social_profiles')]),
+                        'from_website': len(
+                            [p for p in enriched_people if 'website_scraping' in p.get('source', '')]
+                        )
+                    }
+                }
+            else:
+                # Sinon, chercher avec OSINT classique (emails récoltés ci-dessus)
+                people_data = self.search_people_osint(domain, results['emails'], progress_callback)
+                results['people'] = people_data
         except Exception as e:
             results['people_error'] = str(e)
             results['people'] = {}
+        
+        # Ajouter les profils sociaux du scraper si disponibles
+        if social_profiles_from_scrapers:
+            if progress_callback:
+                progress_callback(f'Ajout de {len(social_profiles_from_scrapers)} profil(s) social/social du scraper...')
+            if 'people' not in results or not isinstance(results['people'], dict):
+                results['people'] = {}
+            if 'social_profiles_from_scrapers' not in results['people']:
+                results['people']['social_profiles_from_scrapers'] = social_profiles_from_scrapers
+        
+        # Ajouter les téléphones du scraper si disponibles
+        if phones_from_scrapers:
+            if progress_callback:
+                progress_callback(f'Ajout de {len(phones_from_scrapers)} téléphone(s) du scraper...')
+            results['phones_from_scrapers'] = phones_from_scrapers
+        
+        # Recherche OSINT avancée sur les téléphones
+        if phones_from_scrapers and len(phones_from_scrapers) > 0:
+            if progress_callback:
+                progress_callback('Analyse OSINT des numéros de téléphone...')
+            try:
+                phone_osint_data = self.analyze_phones_osint(phones_from_scrapers[:5], progress_callback)
+                results['phone_osint'] = phone_osint_data
+            except Exception as e:
+                logger.warning(f'Erreur lors de l\'analyse OSINT des téléphones: {e}')
+                results['phone_osint_error'] = str(e)
+        
+        # Recherche OSINT avancée sur les personnes (famille, localisation, etc.)
+        if people_from_scrapers and len(people_from_scrapers) > 0:
+            if progress_callback:
+                progress_callback('Recherche OSINT approfondie sur les personnes...')
+            try:
+                people_osint_data = self.analyze_people_osint(people_from_scrapers[:5], domain, progress_callback)
+                results['people_osint'] = people_osint_data
+            except Exception as e:
+                logger.warning(f'Erreur lors de l\'analyse OSINT approfondie des personnes: {e}')
+                results['people_osint_error'] = str(e)
+        
+        # Géolocalisation depuis les IPs trouvées
+        if results.get('ip_info', {}).get('ip'):
+            if progress_callback:
+                progress_callback('Géolocalisation des adresses IP...')
+            try:
+                ip_geolocation = self.get_ip_geolocation(results['ip_info'].get('ip'))
+                if ip_geolocation:
+                    results['ip_geolocation'] = ip_geolocation
+            except Exception as e:
+                logger.warning(f'Erreur lors de la géolocalisation IP: {e}')
         
         # Recherche de données financières et juridiques
         # Extraire le nom de l'entreprise depuis le domaine ou WHOIS
@@ -994,7 +1963,7 @@ class OSINTAnalyzer:
             results['financial_data_error'] = str(e)
             results['financial_data'] = {}
         
-        # Analyse SSL
+        # Analyse SSL basique
         if progress_callback:
             progress_callback('Analyse SSL/TLS...')
         try:
@@ -1002,17 +1971,34 @@ class OSINTAnalyzer:
         except Exception as e:
             results['ssl_error'] = str(e)
         
-        # Technologies
-        if progress_callback:
-            progress_callback('Détection des technologies...')
+        # Analyse SSL détaillée avec testssl.sh
         try:
-            results['technologies'] = self.detect_technologies(url)
+            ssl_details = self._analyze_ssl_details(domain, progress_callback)
+            if ssl_details:
+                results['ssl_details'] = ssl_details
         except Exception as e:
-            results['tech_error'] = str(e)
+            logger.debug(f'Erreur analyse SSL détaillée: {e}')
+        
+        # Détection WAF
+        try:
+            waf_detections = self._detect_waf(url, progress_callback)
+            if waf_detections:
+                results['waf_detections'] = waf_detections
+        except Exception as e:
+            logger.debug(f'Erreur détection WAF: {e}')
+        
+        # Découverte de répertoires
+        try:
+            directories = self._discover_directories(url, progress_callback)
+            if directories:
+                results['directories'] = directories
+        except Exception as e:
+            logger.debug(f'Erreur découverte répertoires: {e}')
         
         # Informations IP
         if progress_callback:
             progress_callback('Récupération des informations IP...')
+        ip = None
         try:
             ip = socket.gethostbyname(domain)
             results['ip_info'] = {
@@ -1021,6 +2007,43 @@ class OSINTAnalyzer:
             }
         except Exception as e:
             results['ip_error'] = str(e)
+        
+        # Scan des ports et services (Shodan/Censys)
+        if ip:
+            try:
+                port_scan_results = self._scan_ports_and_services(domain, ip, progress_callback)
+                if port_scan_results.get('open_ports'):
+                    results['open_ports'] = port_scan_results['open_ports']
+                if port_scan_results.get('services'):
+                    results['services'] = port_scan_results['services']
+                if port_scan_results.get('certificates'):
+                    results['certificates'] = port_scan_results['certificates']
+            except Exception as e:
+                logger.debug(f'Erreur scan ports/services: {e}')
+        
+        # Recherche de métadonnées de documents
+        try:
+            document_metadata = self._search_document_metadata(domain, progress_callback)
+            if document_metadata:
+                results['document_metadata'] = document_metadata
+        except Exception as e:
+            logger.debug(f'Erreur recherche métadonnées documents: {e}')
+        
+        # Recherche de métadonnées d'images
+        try:
+            image_metadata = self._search_image_metadata(url, progress_callback)
+            if image_metadata:
+                results['image_metadata'] = image_metadata
+        except Exception as e:
+            logger.debug(f'Erreur recherche métadonnées images: {e}')
+        
+        # Technologies
+        if progress_callback:
+            progress_callback('Détection des technologies...')
+        try:
+            results['technologies'] = self.detect_technologies(url)
+        except Exception as e:
+            results['tech_error'] = str(e)
         
         # Résumé
         people_count = results.get('people', {}).get('summary', {}).get('total_people', 0)

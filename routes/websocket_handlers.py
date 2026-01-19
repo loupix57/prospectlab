@@ -11,7 +11,8 @@ from utils.helpers import safe_emit
 from celery_app import celery
 from tasks.analysis_tasks import analyze_entreprise_task
 from tasks.scraping_tasks import scrape_emails_task, scrape_analysis_task
-from tasks.technical_analysis_tasks import osint_analysis_task, pentest_analysis_task, technical_analysis_task
+from tasks.technical_analysis_tasks import pentest_analysis_task, technical_analysis_task
+from tasks.osint_tasks import osint_analysis_task
 import os
 import threading
 import logging
@@ -47,8 +48,10 @@ def register_websocket_handlers(socketio, app):
         """
         try:
             filename = data.get('filename')
-            max_workers = int(data.get('max_workers', 3))
-            delay = float(data.get('delay', 2.0))
+            # Valeurs optimisées pour Celery avec --pool=threads --concurrency=4
+            # Celery gère déjà la concurrence, pas besoin de délai artificiel élevé
+            max_workers = int(data.get('max_workers', 4))  # Optimisé pour Celery concurrency=4
+            delay = float(data.get('delay', 0.1))         # Délai minimal, Celery gère la concurrence
             enable_osint = data.get('enable_osint', False)
             session_id = request.sid
             
@@ -237,9 +240,13 @@ def register_websocket_handlers(socketio, app):
                                         tech_tasks_to_monitor = []  # Sera rempli dès qu'on reçoit les IDs dans le meta
                                         tech_tasks_monitoring_started = False  # Flag pour démarrer le monitoring une seule fois
                                         
+                                        # Capturer analysis_id dans une variable locale pour la fonction monitor_scraping
+                                        analysis_id_for_monitoring = analysis_id
+
                                         # Surveiller la tâche de scraping
                                         def monitor_scraping():
                                             nonlocal tech_tasks_to_monitor, tech_tasks_monitoring_started
+                                            analysis_id_local = analysis_id_for_monitoring  # Utiliser la variable capturée
                                             try:
                                                 last_meta_scraping = None
                                                 while True:
@@ -248,6 +255,9 @@ def register_websocket_handlers(socketio, app):
                                                         if scraping_result.state == 'PROGRESS':
                                                             meta_scraping = scraping_result.info or {}
                                                             if meta_scraping != last_meta_scraping:
+                                                                # Mettre à jour analysis_id depuis le meta si disponible
+                                                                if 'analysis_id' in meta_scraping:
+                                                                    analysis_id_local = meta_scraping['analysis_id']
                                                                 safe_emit(
                                                                     socketio,
                                                                     'scraping_progress',
@@ -266,19 +276,20 @@ def register_websocket_handlers(socketio, app):
                                                                     },
                                                                     room=session_id
                                                                 )
-                                                                
+
                                                                 # Récupérer les IDs des tâches techniques depuis le meta
                                                                 tech_tasks_ids = meta_scraping.get('tech_tasks_launched_ids', [])
                                                                 if tech_tasks_ids and not tech_tasks_monitoring_started:
                                                                     tech_tasks_to_monitor = tech_tasks_ids
                                                                     tech_tasks_monitoring_started = True
                                                                     logger.info(f'[WebSocket] Démarrant le monitoring de {len(tech_tasks_to_monitor)} analyses techniques en temps réel')
-                                                                    
+                                                                
                                                                     # Démarrer le monitoring des analyses techniques en temps réel
                                                                     def monitor_tech_tasks_realtime():
                                                                         tech_completed = 0
                                                                         total_tech = len(tech_tasks_to_monitor)
                                                                         tech_tasks_status = {t['task_id']: {'completed': False, 'last_progress': None, 'current_progress': 0} for t in tech_tasks_to_monitor}
+                                                                        analysis_id_for_tech = analysis_id_local  # Utiliser la variable capturée
                                                                         
                                                                         while tech_completed < total_tech:
                                                                             total_progress_sum = 0
@@ -387,7 +398,7 @@ def register_websocket_handlers(socketio, app):
                                                                             'technical_analysis_complete',
                                                                             {
                                                                                 'message': f'Analyses techniques terminées pour {tech_completed}/{total_tech} entreprises.',
-                                                                                'analysis_id': analysis_id,
+                                                                                'analysis_id': analysis_id_for_tech,
                                                                                 'current': tech_completed,
                                                                                 'total': total_tech
                                                                             },
@@ -396,12 +407,243 @@ def register_websocket_handlers(socketio, app):
                                                                     
                                                                     threading.Thread(target=monitor_tech_tasks_realtime, daemon=True).start()
                                                                 
+                                                                # Récupérer les IDs des tâches OSINT depuis le meta
+                                                                osint_tasks_ids = meta_scraping.get('osint_tasks_launched_ids', [])
+                                                                if osint_tasks_ids:
+                                                                    # Initialiser la liste si elle n'existe pas
+                                                                    if not hasattr(monitor_scraping, 'osint_tasks_to_monitor'):
+                                                                        monitor_scraping.osint_tasks_to_monitor = []
+                                                                        monitor_scraping.osint_monitoring_started = False
+                                                                    
+                                                                    # Ajouter les nouvelles tâches OSINT qui ne sont pas déjà dans la liste
+                                                                    existing_task_ids = {t['task_id'] for t in monitor_scraping.osint_tasks_to_monitor}
+                                                                    new_tasks = [t for t in osint_tasks_ids if t['task_id'] not in existing_task_ids]
+                                                                    
+                                                                    if new_tasks:
+                                                                        monitor_scraping.osint_tasks_to_monitor.extend(new_tasks)
+                                                                        logger.info(f'[WebSocket] {len(new_tasks)} nouvelle(s) tâche(s) OSINT détectée(s), total: {len(monitor_scraping.osint_tasks_to_monitor)}')
+                                                                    
+                                                                    # Démarrer le monitoring si ce n'est pas déjà fait
+                                                                    if not monitor_scraping.osint_monitoring_started and len(monitor_scraping.osint_tasks_to_monitor) > 0:
+                                                                        osint_tasks_to_monitor = monitor_scraping.osint_tasks_to_monitor
+                                                                        monitor_scraping.osint_monitoring_started = True
+                                                                        logger.info(f'[WebSocket] Démarrant le monitoring de {len(osint_tasks_to_monitor)} analyses OSINT en temps réel')
+                                                                    
+                                                                    # Émettre l'événement de démarrage OSINT
+                                                                    safe_emit(
+                                                                        socketio,
+                                                                        'osint_analysis_started',
+                                                                        {
+                                                                            'message': f'Analyse OSINT démarrée pour {len(osint_tasks_to_monitor)} entreprises...',
+                                                                            'total': len(osint_tasks_to_monitor),
+                                                                            'current': 0
+                                                                        },
+                                                                        room=session_id
+                                                                    )
+                                                                    
+                                                                    # Démarrer le monitoring des analyses OSINT en temps réel
+                                                                    def monitor_osint_tasks_realtime():
+                                                                        osint_completed = 0
+                                                                        osint_tasks_status = {}  # Dictionnaire dynamique pour suivre les tâches
+                                                                        osint_cumulative_totals = {  # Totaux cumulés OSINT
+                                                                            'subdomains': 0,
+                                                                            'emails': 0,
+                                                                            'people': 0,
+                                                                            'dns_records': 0,
+                                                                            'ssl_analyses': 0,
+                                                                            'waf_detections': 0,
+                                                                            'directories': 0,
+                                                                            'open_ports': 0,
+                                                                            'services': 0
+                                                                        }
+                                                                        
+                                                                        while True:
+                                                                            # Utiliser la liste dynamique qui se met à jour
+                                                                            current_osint_tasks = monitor_scraping.osint_tasks_to_monitor
+                                                                            total_osint = len(current_osint_tasks)
+                                                                            
+                                                                            # Initialiser les nouvelles tâches dans le statut
+                                                                            for osint_info in current_osint_tasks:
+                                                                                task_id = osint_info['task_id']
+                                                                                if task_id not in osint_tasks_status:
+                                                                                    osint_tasks_status[task_id] = {'completed': False, 'last_progress': None, 'current_progress': 0, 'info': osint_info}
+                                                                            
+                                                                            # Si toutes les tâches sont terminées et qu'il n'y a plus de nouvelles tâches, sortir
+                                                                            if osint_completed >= total_osint and total_osint > 0:
+                                                                                # Vérifier s'il y a de nouvelles tâches en attente
+                                                                                pending_tasks = [t for t in current_osint_tasks if not osint_tasks_status.get(t['task_id'], {}).get('completed', False)]
+                                                                                if len(pending_tasks) == 0:
+                                                                                    break
+                                                                            
+                                                                            # Parcourir toutes les tâches pour mettre à jour leur état
+                                                                            for osint_info in current_osint_tasks:
+                                                                                task_id = osint_info['task_id']
+                                                                                # Vérifier que la tâche est initialisée dans le statut
+                                                                                if task_id not in osint_tasks_status:
+                                                                                    osint_tasks_status[task_id] = {'completed': False, 'last_progress': None, 'current_progress': 0, 'info': osint_info}
+                                                                                
+                                                                                if osint_tasks_status[task_id]['completed']:
+                                                                                    continue
+                                                                                
+                                                                                try:
+                                                                                    osint_result = celery.AsyncResult(task_id)
+                                                                                    current_state = osint_result.state
+                                                                                    
+                                                                                    if current_state == 'PROGRESS':
+                                                                                        meta_osint = osint_result.info or {}
+                                                                                        progress_osint = meta_osint.get('progress', 0)
+                                                                                        message_osint = meta_osint.get('message', '')
+                                                                                        
+                                                                                        # Mettre à jour la progression de cette tâche
+                                                                                        old_progress = osint_tasks_status[task_id].get('current_progress', 0)
+                                                                                        osint_tasks_status[task_id]['current_progress'] = progress_osint
+                                                                                        
+                                                                                        # Ne mettre à jour que si la progression a vraiment changé
+                                                                                        if old_progress != progress_osint:
+                                                                                            # Recalculer la progression globale après mise à jour
+                                                                                            total_progress_sum = 0
+                                                                                            for tid, status in osint_tasks_status.items():
+                                                                                                if status.get('completed', False):
+                                                                                                    total_progress_sum += 100
+                                                                                                else:
+                                                                                                    total_progress_sum += status.get('current_progress', 0)
+                                                                                            
+                                                                                            global_progress = int((total_progress_sum / total_osint) if total_osint > 0 else 0)
+                                                                                            
+                                                                                            safe_emit(
+                                                                                                socketio,
+                                                                                                'osint_analysis_progress',
+                                                                                                {
+                                                                                                    'current': osint_completed,
+                                                                                                    'total': total_osint,
+                                                                                                    'progress': global_progress,
+                                                                                                    'message': f'{message_osint} - {osint_info.get("nom", "N/A")}',
+                                                                                                    'url': osint_info.get('url', ''),
+                                                                                                    'entreprise': osint_info.get('nom', 'N/A'),
+                                                                                                    'task_progress': progress_osint,
+                                                                                                    'cumulative_totals': osint_cumulative_totals.copy()
+                                                                                                },
+                                                                                                room=session_id
+                                                                                            )
+                                                                                    elif current_state == 'SUCCESS':
+                                                                                        if not osint_tasks_status[task_id]['completed']:
+                                                                                            osint_tasks_status[task_id]['completed'] = True
+                                                                                            osint_tasks_status[task_id]['current_progress'] = 100
+                                                                                            osint_completed += 1
+                                                                                            
+                                                                                            # Calculer les totaux cumulés depuis le résultat OSINT
+                                                                                            result_osint = osint_result.result or {}
+                                                                                            summary = result_osint.get('summary', {})
+                                                                                            
+                                                                                            # Ajouter les données de cette entreprise aux totaux cumulés
+                                                                                            if summary:
+                                                                                                osint_cumulative_totals['subdomains'] += summary.get('subdomains_count', 0)
+                                                                                                osint_cumulative_totals['emails'] += summary.get('emails_count', 0)
+                                                                                                osint_cumulative_totals['people'] += summary.get('people_count', 0)
+                                                                                                osint_cumulative_totals['dns_records'] += summary.get('dns_records_count', 0)
+                                                                                            
+                                                                                            # Compter aussi depuis les données brutes si disponibles
+                                                                                            if result_osint.get('subdomains'):
+                                                                                                osint_cumulative_totals['subdomains'] += len(result_osint.get('subdomains', []))
+                                                                                            if result_osint.get('emails'):
+                                                                                                osint_cumulative_totals['emails'] += len(result_osint.get('emails', []))
+                                                                                            if result_osint.get('ssl_info'):
+                                                                                                osint_cumulative_totals['ssl_analyses'] += 1
+                                                                                            if result_osint.get('waf_detection'):
+                                                                                                osint_cumulative_totals['waf_detections'] += 1
+                                                                                            if result_osint.get('directories'):
+                                                                                                osint_cumulative_totals['directories'] += len(result_osint.get('directories', []))
+                                                                                            if result_osint.get('open_ports'):
+                                                                                                osint_cumulative_totals['open_ports'] += len(result_osint.get('open_ports', []))
+                                                                                            if result_osint.get('services'):
+                                                                                                osint_cumulative_totals['services'] += len(result_osint.get('services', []))
+                                                                                            
+                                                                                            # Recalculer la progression globale après mise à jour
+                                                                                            total_progress_sum = 0
+                                                                                            for tid, status in osint_tasks_status.items():
+                                                                                                if status.get('completed', False):
+                                                                                                    total_progress_sum += 100
+                                                                                                else:
+                                                                                                    total_progress_sum += status.get('current_progress', 0)
+                                                                                            
+                                                                                            global_progress = int((total_progress_sum / total_osint) if total_osint > 0 else 0)
+                                                                                            
+                                                                                            safe_emit(
+                                                                                                socketio,
+                                                                                                'osint_analysis_progress',
+                                                                                                {
+                                                                                                    'current': osint_completed,
+                                                                                                    'total': total_osint,
+                                                                                                    'progress': global_progress,
+                                                                                                    'message': f'Analyse OSINT terminée pour {osint_info.get("nom", "N/A")}',
+                                                                                                    'url': osint_info.get('url', ''),
+                                                                                                    'entreprise': osint_info.get('nom', 'N/A'),
+                                                                                                    'task_progress': 100,  # Entreprise terminée = 100%
+                                                                                                    'summary': summary,
+                                                                                                    'cumulative_totals': osint_cumulative_totals.copy()
+                                                                                                },
+                                                                                                room=session_id
+                                                                                            )
+                                                                                    elif current_state == 'FAILURE':
+                                                                                        if not osint_tasks_status[task_id]['completed']:
+                                                                                            osint_tasks_status[task_id]['completed'] = True
+                                                                                            osint_tasks_status[task_id]['current_progress'] = 100
+                                                                                            osint_completed += 1
+                                                                                            
+                                                                                            # Recalculer la progression globale après mise à jour
+                                                                                            total_progress_sum = 0
+                                                                                            for tid, status in osint_tasks_status.items():
+                                                                                                if status.get('completed', False):
+                                                                                                    total_progress_sum += 100
+                                                                                                else:
+                                                                                                    total_progress_sum += status.get('current_progress', 0)
+                                                                                            
+                                                                                            global_progress = int((total_progress_sum / total_osint) if total_osint > 0 else 0)
+                                                                                            
+                                                                                            safe_emit(
+                                                                                                socketio,
+                                                                                                'osint_analysis_error',
+                                                                                                {
+                                                                                                    'error': f'Erreur lors de l\'analyse OSINT pour {osint_info.get("nom", "N/A")}',
+                                                                                                    'url': osint_info.get('url', ''),
+                                                                                                    'entreprise': osint_info.get('nom', 'N/A')
+                                                                                                },
+                                                                                                room=session_id
+                                                                                            )
+                                                                                        else:
+                                                                                            total_progress_sum += 100
+                                                                                
+                                                                                except Exception as e:
+                                                                                    logger.warning(f'Erreur monitoring tâche OSINT {task_id}: {e}')
+                                                                            
+                                                                            threading.Event().wait(0.5)
+                                                                        
+                                                                            # Ne plus envoyer de message périodique, les jauges sont mises à jour directement
+                                                                            
+                                                                            threading.Event().wait(0.5)
+                                                                        
+                                                                        # Toutes les analyses OSINT sont terminées
+                                                                        final_total = len(monitor_scraping.osint_tasks_to_monitor)
+                                                                        safe_emit(
+                                                                            socketio,
+                                                                            'osint_analysis_complete',
+                                                                            {
+                                                                                'message': f'Analyses OSINT terminées pour {osint_completed}/{final_total} entreprises.',
+                                                                                'current': osint_completed,
+                                                                                'total': final_total
+                                                                            },
+                                                                            room=session_id
+                                                                        )
+                                                                    
+                                                                    threading.Thread(target=monitor_osint_tasks_realtime, daemon=True).start()
+                                                                
                                                                 last_meta_scraping = meta_scraping
                                                         elif scraping_result.state == 'SUCCESS':
                                                             res = scraping_result.result or {}
                                                             stats = res.get('stats', {})
                                                             scraped_count = res.get('scraped_count', 0)
                                                             total_entreprises = res.get('total_entreprises', 0)
+                                                            analysis_id = res.get('analysis_id')
                                                             
                                                             # Le monitoring des analyses techniques se fait déjà en temps réel
                                                             # Pas besoin de le relancer ici
@@ -411,7 +653,7 @@ def register_websocket_handlers(socketio, app):
                                                                 'scraping_complete',
                                                                 {
                                                                     'success': True,
-                                                                    'analysis_id': res.get('analysis_id'),
+                                                                    'analysis_id': analysis_id,
                                                                     'scraped_count': scraped_count,
                                                                     'total_entreprises': total_entreprises,
                                                                     'total_emails': stats.get('total_emails', 0),
@@ -424,8 +666,9 @@ def register_websocket_handlers(socketio, app):
                                                                 room=session_id
                                                             )
                                                             
+                                                            
                                                             with tasks_lock:
-                                                                if session_id in active_tasks:
+                                                                if session_id in active_tasks and active_tasks[session_id].get('type') == 'analysis_scraping':
                                                                     del active_tasks[session_id]
                                                             break
                                                         elif scraping_result.state == 'FAILURE':
@@ -724,7 +967,10 @@ def register_websocket_handlers(socketio, app):
                                 if meta != last_meta:
                                     safe_emit(socketio, 'osint_analysis_progress', {
                                         'progress': meta.get('progress', 0),
-                                        'message': meta.get('message', '')
+                                        'message': meta.get('message', ''),
+                                        'task_progress': meta.get('progress', 0),  # Progression de cette tâche
+                                        'url': url,
+                                        'entreprise_id': entreprise_id
                                     }, room=session_id)
                                     last_meta = meta
                             elif current_state == 'SUCCESS':

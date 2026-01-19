@@ -11,9 +11,14 @@ import threading
 import queue
 import time
 import json
+import logging
 from typing import Dict, List, Optional, Callable, Set
 from datetime import datetime
 from functools import lru_cache
+from services.logging_config import setup_logger
+
+# Configurer le logger pour écrire dans scraping_tasks.log
+logger = setup_logger(__name__, 'scraping_tasks.log', level=logging.INFO)
 
 
 class UnifiedScraper:
@@ -53,6 +58,10 @@ class UnifiedScraper:
         self.on_person_found = on_person_found
         self.on_phone_found = on_phone_found
         self.on_social_found = on_social_found
+        
+        # Délai entre les requêtes pour éviter de surcharger les serveurs
+        self.request_delay = 0.3  # 300ms entre chaque requête HTTP
+        self.last_request_time = {}  # Dernière requête par domaine pour éviter de surcharger un même serveur
         
         # Données collectées
         self.links: Set[str] = set()
@@ -209,8 +218,19 @@ class UnifiedScraper:
         return phones
     
     def extract_people_from_page(self, soup: BeautifulSoup, page_url: str) -> List[Dict]:
-        """Extrait les personnes d'une page HTML"""
+        """
+        Extrait les personnes d'une page HTML avec validation des noms
+        
+        Utilise name_validator pour s'assurer que les noms trouvés sont des personnes réelles.
+        """
         people = []
+        
+        # Importer name_validator pour valider les noms
+        try:
+            from services.name_validator import is_valid_human_name, validate_name_pair
+            VALIDATOR_AVAILABLE = True
+        except ImportError:
+            VALIDATOR_AVAILABLE = False
         
         # Mots-clés à exclure (titres de sections, navigation, etc.)
         excluded_keywords = [
@@ -221,10 +241,14 @@ class UnifiedScraper:
             'nos', 'votre', 'notre', 'leurs', 'leurs', 'page', 'section', 'article'
         ]
         
-        # Patterns pour trouver les noms (plus restrictifs)
+        # Patterns améliorés pour trouver les noms (compilés pour de meilleures performances)
         name_patterns = [
-            r'\b(M\.|Mme|Mr\.|Mrs\.|Dr\.|Prof\.|Monsieur|Madame)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b',  # Titre + Nom complet
-            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+\s+[A-Z][a-z]+)\b',  # Prénom Nom de famille (3 mots minimum)
+            # Titre + Nom complet (M. Jean Dupont, Mme Marie Martin)
+            re.compile(r'\b(M\.|Mme|Mr\.|Mrs\.|Dr\.|Prof\.|Monsieur|Madame|Monsieur|Madame)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'),
+            # Prénom + Nom (2 mots minimum, commençant par majuscule)
+            re.compile(r'\b([A-Z][a-z]{2,})\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)\b'),
+            # Format "Nom, Prénom" ou "Prénom Nom"
+            re.compile(r'\b([A-Z][a-z]{2,}),\s*([A-Z][a-z]{2,})\b'),
         ]
         
         # Chercher dans les sections spécifiques (équipe, contact, etc.)
@@ -244,74 +268,106 @@ class UnifiedScraper:
                 if parent:
                     parent_text = parent.get_text()
                     # Chercher un nom dans le texte parent
-                    for pattern in self.name_patterns:
+                    for pattern in name_patterns:
                         matches = pattern.finditer(parent_text)
                         for match in matches:
                             name = match.group(2) if len(match.groups()) > 1 else match.group(1)
                             name = name.strip()
                             
-                            # Filtrer les faux positifs
+                            # Filtrer les faux positifs avec name_validator
                             name_lower = name.lower()
                             if (len(name.split()) >= 2 and len(name) >= 5 and 
                                 not any(kw in name_lower for kw in excluded_keywords) and
                                 not name_lower.startswith(('page', 'section', 'article', 'menu', 'nav'))):
                                 
-                                # Chercher le titre/fonction
-                                title = None
-                                title_elem = parent.find(['h3', 'h4', 'p', 'span'], 
-                                                         class_=re.compile(r'title|role|position|fonction|job', re.I))
-                                if title_elem:
-                                    title = title_elem.get_text().strip()
+                                # Valider avec name_validator si disponible
+                                is_valid = True
+                                if VALIDATOR_AVAILABLE:
+                                    if not is_valid_human_name(name):
+                                        is_valid = False
+                                    else:
+                                        # Valider aussi la paire prénom/nom si possible
+                                        name_parts = name.split()
+                                        if len(name_parts) >= 2:
+                                            first_name = name_parts[0]
+                                            last_name = ' '.join(name_parts[1:])
+                                            validated = validate_name_pair(first_name, last_name)
+                                            if not validated:
+                                                is_valid = False
                                 
-                                # Chercher le LinkedIn
-                                linkedin_url = None
-                                linkedin_elem = parent.find('a', href=re.compile(r'linkedin\.com', re.I))
-                                if linkedin_elem:
-                                    linkedin_url = linkedin_elem['href']
-                                
-                                # Chercher le téléphone
-                                phone = None
-                                phone_elem = parent.find('a', href=re.compile(r'tel:', re.I))
-                                if phone_elem:
-                                    phone = phone_elem['href'].replace('tel:', '').strip()
-                                
-                                person_id = name.lower()
-                                if not any(p.get('name', '').lower() == person_id for p in people):
-                                    person_data = {
-                                        'name': name,
-                                        'email': email,
-                                        'title': title,
-                                        'linkedin_url': linkedin_url,
-                                        'phone': phone,
-                                        'page_url': page_url,
-                                        'source': 'website_scraping'
-                                    }
-                                    people.append(person_data)
-                                    break
+                                if is_valid:
+                                    # Chercher le titre/fonction
+                                    title = None
+                                    title_elem = parent.find(['h3', 'h4', 'p', 'span'], 
+                                                             class_=re.compile(r'title|role|position|fonction|job', re.I))
+                                    if title_elem:
+                                        title = title_elem.get_text().strip()
+                                    
+                                    # Chercher le LinkedIn
+                                    linkedin_url = None
+                                    linkedin_elem = parent.find('a', href=re.compile(r'linkedin\.com', re.I))
+                                    if linkedin_elem:
+                                        linkedin_url = linkedin_elem['href']
+                                    
+                                    # Chercher le téléphone
+                                    phone = None
+                                    phone_elem = parent.find('a', href=re.compile(r'tel:', re.I))
+                                    if phone_elem:
+                                        phone = phone_elem['href'].replace('tel:', '').strip()
+                                    
+                                    person_id = name.lower()
+                                    if not any(p.get('name', '').lower() == person_id for p in people):
+                                        person_data = {
+                                            'name': name,
+                                            'email': email,
+                                            'title': title,
+                                            'linkedin_url': linkedin_url,
+                                            'phone': phone,
+                                            'page_url': page_url,
+                                            'source': 'website_scraping'
+                                        }
+                                        people.append(person_data)
+                                        break
                 elif name_text and '@' not in name_text and len(name_text.split()) >= 2:
                     # Le texte du lien lui-même pourrait être un nom
                     name_lower = name_text.lower()
                     if (len(name_text) >= 5 and 
                         not any(kw in name_lower for kw in excluded_keywords)):
-                        person_id = name_text.lower()
-                        if not any(p.get('name', '').lower() == person_id for p in people):
-                            person_data = {
-                                'name': name_text,
-                                'email': email,
-                                'title': None,
-                                'linkedin_url': None,
-                                'phone': None,
-                                'page_url': page_url,
-                                'source': 'website_scraping'
-                            }
-                            people.append(person_data)
+                        # Valider avec name_validator si disponible
+                        is_valid = True
+                        if VALIDATOR_AVAILABLE:
+                            if not is_valid_human_name(name_text):
+                                is_valid = False
+                            else:
+                                # Valider aussi la paire prénom/nom si possible
+                                name_parts = name_text.split()
+                                if len(name_parts) >= 2:
+                                    first_name = name_parts[0]
+                                    last_name = ' '.join(name_parts[1:])
+                                    validated = validate_name_pair(first_name, last_name)
+                                    if not validated:
+                                        is_valid = False
+                        
+                        if is_valid:
+                            person_id = name_text.lower()
+                            if not any(p.get('name', '').lower() == person_id for p in people):
+                                person_data = {
+                                    'name': name_text,
+                                    'email': email,
+                                    'title': None,
+                                    'linkedin_url': None,
+                                    'phone': None,
+                                    'page_url': page_url,
+                                    'source': 'website_scraping'
+                                }
+                                people.append(person_data)
         
         # Chercher aussi dans les sections trouvées
         for section in sections:
             section_text = section.get_text()
             
             # Chercher les noms dans les sections
-            for pattern in self.name_patterns:
+            for pattern in name_patterns:
                 matches = pattern.finditer(section_text)
                 for match in matches:
                     name = match.group(2) if len(match.groups()) > 1 else match.group(1)
@@ -351,16 +407,130 @@ class UnifiedScraper:
                         # Créer un identifiant unique pour éviter les doublons
                         person_id = name.lower()
                         if not any(p.get('name', '').lower() == person_id for p in people):
-                            person_data = {
-                                'name': name,
-                                'email': email,
-                                'title': title,
-                                'linkedin_url': linkedin_url,
-                                'phone': phone,
-                                'page_url': page_url,
-                                'source': 'website_scraping'
-                            }
-                            people.append(person_data)
+                            # Valider le nom avec name_validator si disponible
+                            is_valid = True
+                            first_name = None
+                            last_name = None
+                            
+                            if VALIDATOR_AVAILABLE:
+                                # Essayer de séparer prénom et nom
+                                name_parts = name.split()
+                                if len(name_parts) >= 2:
+                                    first_name = name_parts[0]
+                                    last_name = ' '.join(name_parts[1:])
+                                    validated = validate_name_pair(first_name, last_name)
+                                    if validated:
+                                        first_name, last_name = validated
+                                        name = f'{first_name} {last_name}'
+                                    else:
+                                        # Si la paire n'est pas valide, vérifier le nom complet
+                                        if not is_valid_human_name(name):
+                                            is_valid = False
+                                else:
+                                    # Nom complet seul
+                                    if not is_valid_human_name(name):
+                                        is_valid = False
+                            
+                            if is_valid:
+                                person_data = {
+                                    'name': name,
+                                    'first_name': first_name,
+                                    'last_name': last_name,
+                                    'email': email,
+                                    'title': title,
+                                    'linkedin_url': linkedin_url,
+                                    'phone': phone,
+                                    'page_url': page_url,
+                                    'source': 'website_scraping'
+                                }
+                                people.append(person_data)
+        
+        # Chercher aussi dans tout le texte de la page (recherche approfondie)
+        if not people or len(people) < 5:  # Si peu de personnes trouvées, chercher plus largement
+            page_text = soup.get_text()
+            # Nettoyer le texte (supprimer les espaces multiples, sauts de ligne)
+            page_text = re.sub(r'\s+', ' ', page_text)
+            
+            # Chercher les patterns de noms dans tout le texte
+            for pattern in name_patterns:
+                matches = pattern.finditer(page_text)
+                for match in matches:
+                    # Extraire le nom (groupe 2 si titre présent, sinon groupe 1)
+                    if len(match.groups()) >= 2 and match.group(2):
+                        name = match.group(2).strip()
+                    else:
+                        name = match.group(1).strip() if match.group(1) else None
+                    
+                    if not name:
+                        continue
+                    
+                    # Valider le nom
+                    name_lower = name.lower()
+                    if (len(name.split()) >= 2 and len(name) >= 5 and 
+                        not any(kw in name_lower for kw in excluded_keywords) and
+                        not name_lower.startswith(('page', 'section', 'article', 'menu', 'nav'))):
+                        
+                        # Valider avec name_validator
+                        is_valid = True
+                        first_name = None
+                        last_name = None
+                        
+                        if VALIDATOR_AVAILABLE:
+                            name_parts = name.split()
+                            if len(name_parts) >= 2:
+                                first_name = name_parts[0]
+                                last_name = ' '.join(name_parts[1:])
+                                validated = validate_name_pair(first_name, last_name)
+                                if validated:
+                                    first_name, last_name = validated
+                                    name = f'{first_name} {last_name}'
+                                else:
+                                    if not is_valid_human_name(name):
+                                        is_valid = False
+                            else:
+                                if not is_valid_human_name(name):
+                                    is_valid = False
+                        
+                        if is_valid:
+                            # Chercher l'email associé dans le contexte (50 caractères avant/après)
+                            match_start = match.start()
+                            context_start = max(0, match_start - 50)
+                            context_end = min(len(page_text), match_start + len(name) + 50)
+                            context = page_text[context_start:context_end]
+                            
+                            # Chercher un email dans le contexte
+                            email = None
+                            email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', context)
+                            if email_match:
+                                email = email_match.group(0)
+                            
+                            # Chercher le titre dans le contexte
+                            title = None
+                            title_match = re.search(r'(directeur|manager|responsable|chef|coordinateur|coordonnatrice)', context, re.I)
+                            if title_match:
+                                title = title_match.group(0)
+                            
+                            person_id = name.lower()
+                            if not any(p.get('name', '').lower() == person_id for p in people):
+                                person_data = {
+                                    'name': name,
+                                    'first_name': first_name,
+                                    'last_name': last_name,
+                                    'email': email,
+                                    'title': title,
+                                    'linkedin_url': None,
+                                    'phone': None,
+                                    'page_url': page_url,
+                                    'source': 'website_text_scraping'
+                                }
+                                people.append(person_data)
+                                
+                                # Limiter à 10 personnes par page pour éviter trop de faux positifs
+                                if len(people) >= 10:
+                                    break
+                
+                if len(people) >= 10:
+                    break
         
         return people
     
@@ -636,8 +806,13 @@ class UnifiedScraper:
         large_image = None
         try:
             for img in soup.find_all('img'):
-                src = img.get('src') or img.get('data-src')
+                # Récupérer src ou data-src (lazy loading) - comme dans extract_images_from_page
+                src = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
                 if not src:
+                    continue
+                
+                # Ignorer les images data: ou vides (comme dans extract_images_from_page)
+                if src.startswith('data:') or not src.strip():
                     continue
                 
                 # Normaliser l'URL de l'image
@@ -782,22 +957,42 @@ class UnifiedScraper:
     def scrape_page(self, url: str, depth: int = 0) -> None:
         """Scrape une page et extrait toutes les données"""
         if depth > self.max_depth:
+            logger.info(f'[UnifiedScraper] Page {url}: Profondeur {depth} > max_depth {self.max_depth}, ignorée')
             return
         if url in self.visited_urls:
+            logger.info(f'[UnifiedScraper] Page {url}: Déjà visitée, ignorée')
             return
         if self.should_stop:
+            logger.info(f'[UnifiedScraper] Page {url}: Scraping arrêté, ignorée')
             return
         
         # Vérifier la limite du nombre de pages avant de commencer
         with self.lock:
             if len(self.visited_urls) >= self.max_pages:
                 self.should_stop = True
+                logger.info(f'[UnifiedScraper] Page {url}: Limite de {self.max_pages} pages atteinte')
                 return
             self.visited_urls.add(url)
             self.urls_in_progress += 1
         
+        logger.info(f'[UnifiedScraper] Scraping de la page {url} (profondeur {depth})')
+        
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            # Délai entre les requêtes pour éviter de surcharger les serveurs et permettre le chargement complet
+            # Utiliser un délai par domaine pour éviter de surcharger un même serveur
+            domain = urlparse(url).netloc
+            current_time = time.time()
+            
+            with self.lock:
+                if domain in self.last_request_time:
+                    time_since_last = current_time - self.last_request_time[domain]
+                    if time_since_last < self.request_delay:
+                        sleep_time = self.request_delay - time_since_last
+                        time.sleep(sleep_time)
+                
+                self.last_request_time[domain] = time.time()
+            
+            response = requests.get(url, headers=self.headers, timeout=15)  # Timeout augmenté à 15s
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -843,9 +1038,22 @@ class UnifiedScraper:
                         except Exception:
                             pass
             
-            # 3. Extraire les personnes (seulement sur certaines pages)
-            if depth <= 1 or any(keyword in url.lower() for keyword in ['about', 'contact', 'team', 'equipe', 'nous']):
+            # 3. Extraire les personnes
+            # Recherche approfondie sur les pages de niveau 0-1 ou pages spécifiques (équipe, contact, etc.)
+            # Recherche basique sur toutes les pages pour trouver des personnes dans les textes
+            search_people = False
+            search_mode = 'basic'  # 'basic' ou 'deep'
+            
+            if depth <= 1 or any(keyword in url.lower() for keyword in ['about', 'contact', 'team', 'equipe', 'nous', 'staff', 'dirigeant', 'management']):
+                search_people = True
+                search_mode = 'deep'  # Recherche approfondie sur ces pages
+            elif depth <= 2:  # Recherche basique jusqu'à la profondeur 2
+                search_people = True
+                search_mode = 'basic'
+            
+            if search_people:
                 page_people = self.extract_people_from_page(soup, url)
+                logger.info(f'[UnifiedScraper] Page {url}: {len(page_people)} personnes extraites')
                 with self.lock:
                     new_people = []
                     for person in page_people:
@@ -860,6 +1068,8 @@ class UnifiedScraper:
                                     self.on_person_found(person, url)
                                 except Exception as e:
                                     pass
+                    if new_people:
+                        logger.info(f'[UnifiedScraper] Page {url}: {len(new_people)} nouvelles personnes ajoutées (total: {len(self.people)})')
             
             # 4. Extraire les formulaires / points d'entrée (pour un usage futur pentest)
             page_forms = []
@@ -945,6 +1155,7 @@ class UnifiedScraper:
             # 5. Extraire les réseaux sociaux
             new_social_links = []
             all_links = soup.find_all('a', href=True)
+            logger.info(f'[UnifiedScraper] Page {url}: {len(all_links)} liens trouvés pour détection réseaux sociaux')
             for link in all_links:
                 href = link['href']
                 full_url = self.normalize_url(href, url)
@@ -971,10 +1182,14 @@ class UnifiedScraper:
                                         self.on_social_found(platform, full_url, url)
                                     except Exception:
                                         pass
+            if new_social_links:
+                logger.info(f'[UnifiedScraper] Page {url}: {len(new_social_links)} nouveaux réseaux sociaux trouvés: {[p for p, _ in new_social_links]}')
             
             # 6. Détecter les technologies (seulement sur la page d'accueil)
             if depth == 0:
+                logger.info(f'[UnifiedScraper] Page {url}: Détection des technologies')
                 self.detect_technologies(text, response.headers)
+                logger.info(f'[UnifiedScraper] Page {url}: Technologies détectées: {self.technologies}')
             
             # 7. Extraire les métadonnées de toutes les pages
             page_metadata = self.extract_metadata(soup)
@@ -983,21 +1198,53 @@ class UnifiedScraper:
                 # Garder les métadonnées de la page d'accueil pour compatibilité
                 if depth == 0:
                     self.metadata = page_metadata
+                    icons = page_metadata.get('icons', {})
+                    logger.info(f'[UnifiedScraper] Page {url} (accueil): Métadonnées extraites - favicon={bool(icons.get("favicon"))}, logo={bool(icons.get("logo"))}, og_tags={len(page_metadata.get("open_graph", {}))}')
                 
-                # Collecter les OG de toutes les pages
+                # Collecter les OG de toutes les pages (même si vides pour la page d'accueil)
                 og_tags = page_metadata.get('open_graph', {})
-                if og_tags:  # Ne stocker que si des OG sont présents
-                    self.og_data_by_page[url] = og_tags
+                # Toujours stocker les OG, même si vides (pour la page d'accueil au minimum)
+                # Cela permet de récupérer au moins les métadonnées de base
+                self.og_data_by_page[url] = og_tags
+                if og_tags:
+                    logger.info(f'[UnifiedScraper] Page {url}: {len(og_tags)} tags OG collectés')
+                elif depth == 0:
+                    logger.info(f'[UnifiedScraper] Page {url} (accueil): Aucun tag OG trouvé, mais métadonnées de base stockées')
             
             # 8. Extraire les images depuis les balises <img> du HTML
             page_images = self.extract_images_from_page(soup, url)
+            logger.info(f'[UnifiedScraper] Page {url}: {len(page_images)} images extraites depuis extract_images_from_page')
+            
+            # 9. Fusionner aussi les images de extract_metadata (pour s'assurer de ne rien manquer)
+            metadata_images = page_metadata.get('images', [])
+            logger.info(f'[UnifiedScraper] Page {url}: {len(metadata_images)} images dans metadata')
+            if metadata_images:
+                # Convertir le format des images de metadata vers le format standard
+                for img_meta in metadata_images:
+                    if isinstance(img_meta, dict) and img_meta.get('url'):
+                        # Vérifier si l'image n'est pas déjà dans page_images
+                        if not any(img.get('url') == img_meta.get('url') for img in page_images):
+                            # Ajouter page_url si manquant
+                            img_data = {
+                                'url': img_meta.get('url'),
+                                'alt': img_meta.get('alt', ''),
+                                'page_url': url,
+                                'width': img_meta.get('width'),
+                                'height': img_meta.get('height')
+                            }
+                            page_images.append(img_data)
+            
             with self.lock:
                 # Éviter les doublons en vérifiant l'URL
                 existing_image_urls = {img.get('url') for img in self.images}
+                new_images_count = 0
                 for img_data in page_images:
                     if img_data.get('url') and img_data['url'] not in existing_image_urls:
                         self.images.append(img_data)
                         existing_image_urls.add(img_data['url'])
+                        new_images_count += 1
+                    if new_images_count > 0:
+                        logger.info(f'[UnifiedScraper] Page {url}: {new_images_count} nouvelles images ajoutées (total: {len(self.images)})')
             
             # Extraire les liens vers d'autres pages
             links = []
@@ -1043,7 +1290,8 @@ class UnifiedScraper:
                             total_emails = len(self.emails)
                             total_people = len(self.people)
                             total_phones = len(self.phones)
-                            total_social = len(self.social_links)
+                            # Compter le nombre total de liens sociaux (pas juste le nombre de plateformes)
+                            total_social = sum(len(v) if isinstance(v, list) else 1 for v in self.social_links.values()) if self.social_links else 0
                         
                         self.progress_callback(
                             f'{visited} page(s) - {total_emails} emails, {total_people} personnes, '
@@ -1052,8 +1300,8 @@ class UnifiedScraper:
                     except Exception:
                         pass
         
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f'[UnifiedScraper] Erreur lors du scraping de {url}: {e}', exc_info=True)
         finally:
             with self.lock:
                 self.urls_in_progress -= 1
@@ -1076,7 +1324,8 @@ class UnifiedScraper:
                 if self.should_stop:
                     break
                 continue
-            except Exception:
+            except Exception as e:
+                logger.error(f'[UnifiedScraper] Erreur dans worker {worker_name}: {e}', exc_info=True)
                 self.url_queue.task_done()
     
     def scrape(self) -> Dict:
@@ -1129,8 +1378,8 @@ class UnifiedScraper:
         
         except KeyboardInterrupt:
             self.should_stop = True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f'[UnifiedScraper] Erreur dans scrape(): {e}', exc_info=True)
         
         for thread in threads:
             thread.join(timeout=2)
@@ -1142,18 +1391,23 @@ class UnifiedScraper:
         phones_list = [{'phone': phone, 'page_url': None} for phone in self.phones]
         
         if self.progress_callback:
+            total_social = sum(len(v) if isinstance(v, list) else 1 for v in self.social_links.values()) if self.social_links else 0
             self.progress_callback(
                 f'Scraping terminé: {len(self.emails)} emails, {len(self.people)} personnes, '
-                f'{len(phones_list)} téléphones, {len(self.social_links)} réseaux sociaux'
+                f'{len(phones_list)} téléphones, {total_social} réseaux sociaux'
             )
         
         # Générer le résumé de l'entreprise
         resume = self.generate_company_summary()
         
         # Log final du nombre de pages avec OG collectées
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f'[UnifiedScraper] Scraping terminé pour {self.base_url}: {len(self.og_data_by_page)} page(s) avec OG collectées sur {len(self.visited_urls)} page(s) visitées')
+        
+        # Log détaillé des résultats
+        logger.info(f'[UnifiedScraper] Résultats finaux: {len(self.emails)} emails, {len(self.people)} personnes, {len(phones_list)} téléphones, '
+                   f'{sum(len(v) if isinstance(v, list) else 1 for v in self.social_links.values()) if self.social_links else 0} réseaux sociaux, '
+                   f'{sum(len(v) if isinstance(v, list) else 1 for v in self.technologies.values()) if self.technologies else 0} technologies, '
+                   f'{len(self.images)} images, {len(self.forms)} formulaires')
         
         # Formater les emails avec leur page_url
         emails_list = []
@@ -1178,8 +1432,9 @@ class UnifiedScraper:
             'total_emails': len(self.emails),
             'total_people': len(self.people),
             'total_phones': len(phones_list),
-            'total_social_platforms': len(self.social_links),
-            'total_technologies': sum(len(v) if isinstance(v, list) else 1 for v in self.technologies.values()),
+            # Compter le nombre total de liens sociaux (pas juste le nombre de plateformes)
+            'total_social_platforms': sum(len(v) if isinstance(v, list) else 1 for v in self.social_links.values()) if self.social_links else 0,
+            'total_technologies': sum(len(v) if isinstance(v, list) else 1 for v in self.technologies.values()) if self.technologies else 0,
             'total_images': len(self.images),
             'total_forms': len(self.forms),  # Nombre de formulaires trouvés
             'total_og_pages': len(self.og_data_by_page),  # Nombre de pages avec OG

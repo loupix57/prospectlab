@@ -2796,123 +2796,214 @@
             minute: '2-digit'
         });
         
+        // Utiliser les données normalisées de la BDD
+        const subdomains = analysis.subdomains || [];
+        const emails = analysis.emails || analysis.emails_found || [];
+        const socialMedia = analysis.social_media || {};
+        const technologies = analysis.technologies_detected || analysis.technologies || {};
+        const dnsRecords = analysis.dns_records || {};
+        const whoisInfo = analysis.whois_data || analysis.whois_info || {};
+        
+        // Compter les éléments
+        const emailCount = Array.isArray(emails) ? emails.length : 0;
+        const socialCount = Object.keys(socialMedia).reduce((sum, platform) => {
+            const urls = Array.isArray(socialMedia[platform]) ? socialMedia[platform] : [];
+            return sum + urls.length;
+        }, 0);
+        const techCount = Object.keys(technologies).reduce((sum, category) => {
+            const techs = Array.isArray(technologies[category]) ? technologies[category] : [];
+            return sum + techs.length;
+        }, 0);
+        
+        // Fonction helper pour créer une carte de statistique
+        const createStatCard = (icon, label, value, color = '#9333ea') => `
+            <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: ${color}15; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        ${icon}
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">${label}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #111827;">${value}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
         let html = `
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                <!-- En-tête -->
-                <div class="detail-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin: 0 0 1rem 0; color: white;">🔎 Informations générales</h3>
-                    <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; color: white;">
-                        <div><strong>📅 Date:</strong> ${date}</div>
-                        <div><strong>🌐 URL:</strong> <a href="${analysis.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${analysis.url}</a></div>
-                        <div><strong>🏷️ Domaine:</strong> ${analysis.domain || 'N/A'}</div>
+                <!-- En-tête avec statistiques -->
+                <div style="background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(147, 51, 234, 0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1.5rem;">
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0; color: white; font-size: 1.5rem; font-weight: 700;">Analyse OSINT</h3>
+                            <div style="font-size: 0.9rem; opacity: 0.9;">${date}</div>
                     </div>
+                        <div style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem;">
+                            ${analysis.domain || 'N/A'}
+                </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem;">
+                        ${createStatCard('🌐', 'Sous-domaines', subdomains.length, '#9333ea')}
+                        ${createStatCard('📧', 'Emails', emailCount, '#3b82f6')}
+                        ${createStatCard('👥', 'Réseaux sociaux', socialCount, '#10b981')}
+                        ${createStatCard('⚙️', 'Technologies', techCount, '#f59e0b')}
+                </div>
+                    ${analysis.url ? `
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                            <a href="${analysis.url}" target="_blank" style="color: white; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <span>🌐</span>
+                                <span>${analysis.url}</span>
+                                <span style="font-size: 0.75rem;">↗</span>
+                            </a>
+                </div>
+                ` : ''}
                 </div>
                 
-                ${analysis.subdomains && Array.isArray(analysis.subdomains) && analysis.subdomains.length > 0 ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">🌐 Sous-domaines <span class="badge badge-info">${analysis.subdomains.length}</span></h3>
+                ${subdomains.length > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🌐</span>
+                        <span>Sous-domaines</span>
+                        <span style="background: #e9d5ff; color: #6b21a8; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${subdomains.length}</span>
+                    </h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${analysis.subdomains.map(sub => `<span class="badge badge-outline" style="font-family: monospace;">${sub}</span>`).join('')}
+                        ${subdomains.map(sub => `
+                            <div style="background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.9rem; color: #374151; border: 1px solid #e5e7eb;">
+                                ${escapeHtml(sub)}
                     </div>
+                        `).join('')}
+                </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.dns_records ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">📡 Enregistrements DNS</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les enregistrements DNS</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.dns_records, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
-                ${analysis.whois_data || analysis.whois_info ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">📋 Informations WHOIS</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les informations WHOIS</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.whois_data || analysis.whois_info, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
-                ${analysis.emails_found && Array.isArray(analysis.emails_found) && analysis.emails_found.length > 0 ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">📧 Emails trouvés <span class="badge badge-info">${analysis.emails_found.length}</span></h3>
+                ${emailCount > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📧</span>
+                        <span>Emails trouvés</span>
+                        <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${emailCount}</span>
+                    </h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${analysis.emails_found.map(email => `<a href="mailto:${email}" class="badge badge-primary" style="text-decoration: none;">${email}</a>`).join('')}
+                        ${emails.map(emailData => {
+                            const email = typeof emailData === 'string' ? emailData : (emailData.email || emailData.value || '');
+                            const source = typeof emailData === 'object' && emailData.source ? emailData.source : null;
+                            return `
+                                <a href="mailto:${email}" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 0.5rem 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3); transition: transform 0.2s;">
+                                    <span>✉️</span>
+                                    <span>${escapeHtml(email)}</span>
+                                    ${source ? `<span style="font-size: 0.75rem; opacity: 0.8;">(${escapeHtml(source)})</span>` : ''}
+                                </a>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.social_media ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">👥 Réseaux sociaux et personnes</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les détails</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.social_media, null, 2)}</pre>
-                    </details>
+                ${socialCount > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>👥</span>
+                        <span>Réseaux sociaux</span>
+                        <span style="background: #d1fae5; color: #065f46; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${socialCount}</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${Object.entries(socialMedia).map(([platform, urls]) => {
+                            const urlList = Array.isArray(urls) ? urls : [urls];
+                            return `
+                                <div>
+                                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; text-transform: capitalize;">${escapeHtml(platform)}</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                        ${urlList.map(url => `
+                                            <a href="${url}" target="_blank" style="background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; text-decoration: none; color: #2563eb; font-size: 0.9rem; border: 1px solid #e5e7eb; display: inline-flex; align-items: center; gap: 0.5rem; transition: background 0.2s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+                                                <span>🔗</span>
+                                                <span>${escapeHtml(url)}</span>
+                                                <span style="font-size: 0.75rem;">↗</span>
+                                            </a>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.technologies_detected ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">⚙️ Technologies détectées</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les technologies</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.technologies_detected, null, 2)}</pre>
-                    </details>
+                ${techCount > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚙️</span>
+                        <span>Technologies détectées</span>
+                        <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${techCount}</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        ${Object.entries(technologies).map(([category, techs]) => {
+                            const techList = Array.isArray(techs) ? techs : [techs];
+                            return `
+                                <div>
+                                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; text-transform: capitalize;">${escapeHtml(category)}</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                        ${techList.map(tech => `
+                                            <div style="background: #fef3c7; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem; color: #92400e; border: 1px solid #fde68a;">
+                                                ${escapeHtml(tech)}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.ssl_info ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">🔒 Informations SSL</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les informations SSL</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.ssl_info, null, 2)}</pre>
-                    </details>
+                ${Object.keys(dnsRecords).length > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📡</span>
+                        <span>Enregistrements DNS</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${Object.entries(dnsRecords).map(([type, records]) => {
+                            const recordList = Array.isArray(records) ? records : [records];
+                            return `
+                                <div>
+                                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; font-family: 'Courier New', monospace;">${escapeHtml(type)}</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                        ${recordList.map(record => `
+                                            <div style="background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: #374151; border: 1px solid #e5e7eb;">
+                                                ${escapeHtml(String(record))}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.ip_info ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">🌍 Informations IP</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les informations IP</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.ip_info, null, 2)}</pre>
-                    </details>
+                ${Object.keys(whoisInfo).length > 0 ? `
+                <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📋</span>
+                        <span>Informations WHOIS</span>
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                        ${Object.entries(whoisInfo).filter(([key, value]) => value && typeof value !== 'object').map(([key, value]) => `
+                            <div>
+                                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem; text-transform: capitalize;">${escapeHtml(key.replace(/_/g, ' '))}</div>
+                                <div style="font-weight: 500; color: #111827;">${escapeHtml(String(value))}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.shodan_data ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">🔍 Données Shodan</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les données Shodan</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.shodan_data, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
-                ${analysis.censys_data ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">🔎 Données Censys</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les données Censys</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.censys_data, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
-                ${analysis.osint_details ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #f5576c; padding-bottom: 0.5rem;">📊 Détails OSINT complets</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir tous les détails</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.osint_details, null, 2)}</pre>
-                    </details>
+                ${(!subdomains.length && !emailCount && !socialCount && !techCount && !Object.keys(dnsRecords).length && !Object.keys(whoisInfo).length) ? `
+                <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Aucune donnée OSINT disponible</div>
+                    <div style="font-size: 0.9rem;">Lancez une analyse OSINT pour collecter des informations.</div>
                 </div>
                 ` : ''}
             </div>

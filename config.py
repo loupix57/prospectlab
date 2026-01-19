@@ -51,6 +51,14 @@ DATABASE_PATH = os.environ.get('DATABASE_PATH', None)  # None = chemin par défa
 SIRENE_API_KEY = os.environ.get('SIRENE_API_KEY', '')
 SIRENE_API_URL = os.environ.get('SIRENE_API_URL', 'https://recherche-entreprises.api.gouv.fr/search')
 
+# Configuration APIs OSINT (optionnelles mais recommandées)
+SHODAN_API_KEY = os.environ.get('SHODAN_API_KEY', '')
+CENSYS_API_ID = os.environ.get('CENSYS_API_ID', '')
+CENSYS_API_SECRET = os.environ.get('CENSYS_API_SECRET', '')
+HUNTER_API_KEY = os.environ.get('HUNTER_API_KEY', '')
+BUILTWITH_API_KEY = os.environ.get('BUILTWITH_API_KEY', '')
+HIBP_API_KEY = os.environ.get('HIBP_API_KEY', '')
+
 # Configuration WSL (pour les outils OSINT/Pentest)
 WSL_DISTRO = os.environ.get('WSL_DISTRO', 'kali-linux')
 WSL_USER = os.environ.get('WSL_USER', 'loupix')

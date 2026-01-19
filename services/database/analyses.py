@@ -1,0 +1,78 @@
+"""
+Module de gestion des analyses générales
+Contient les méthodes pour les analyses de base
+"""
+
+import json
+from .base import DatabaseBase
+
+
+class DatabaseAnalyses(DatabaseBase):
+    """
+    Gère les analyses générales (pas techniques/OSINT/Pentest)
+    """
+    
+    def __init__(self, *args, **kwargs):
+        """Initialise le module analyses"""
+        super().__init__(*args, **kwargs)
+    
+    def save_analysis(self, filename, output_filename, total, parametres, duree=None):
+        """
+        Sauvegarde une analyse dans la base
+        
+        Args:
+            filename: Nom du fichier d'entrée
+            output_filename: Nom du fichier de sortie
+            total: Nombre total d'entreprises
+            parametres: Paramètres de l'analyse (dict)
+            duree: Durée en secondes (optionnel)
+        
+        Returns:
+            ID de l'analyse créée
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO analyses (filename, output_filename, total_entreprises, parametres, statut, duree_secondes)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (filename, output_filename, total, json.dumps(parametres), 'Terminé', duree))
+        
+        analysis_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return analysis_id
+    
+    def get_analyses(self, limit=50):
+        """
+        Récupère les analyses récentes
+        
+        Args:
+            limit: Nombre maximum d'analyses à retourner
+        
+        Returns:
+            Liste des analyses
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT * FROM analyses
+            ORDER BY date_creation DESC
+            LIMIT ?
+        ''', (limit,))
+        
+        analyses = []
+        for row in cursor.fetchall():
+            analysis = dict(row)
+            if analysis.get('parametres'):
+                try:
+                    analysis['parametres'] = json.loads(analysis['parametres'])
+                except:
+                    pass
+            analyses.append(analysis)
+        
+        conn.close()
+        return analyses
+

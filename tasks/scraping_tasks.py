@@ -9,12 +9,13 @@ from celery_app import celery
 from services.unified_scraper import UnifiedScraper
 from services.database import Database
 from services.logging_config import setup_logger
+from services.name_validator import is_valid_human_name, validate_name_pair
 import logging
 import json
 from typing import Dict
 
-# Configurer le logger pour cette tâche
-logger = setup_logger(__name__, 'scraping_tasks.log', level=logging.DEBUG)
+# Configurer le logger pour cette tâche (niveau INFO pour limiter le bruit)
+logger = setup_logger(__name__, 'scraping_tasks.log', level=logging.INFO)
 
 
 def _safe_update_state(task, task_id, **kwargs):
@@ -171,10 +172,10 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
     Returns:
         dict: Statistiques globales du scraping pour cette analyse.
     """
-    logger.info(f'Démarrage du scraping pour l\'analyse {analysis_id}')
+    logger.info(f'Demarrage du scraping pour l analyse {analysis_id}')
     task_id = getattr(self.request, 'id', None)
     if not task_id:
-        logger.warning('task_id introuvable au démarrage de scrape_analysis_task')
+        logger.debug('task_id introuvable au demarrage de scrape_analysis_task')
     db = Database()
     conn = db.get_connection()
     conn.row_factory = None  # tuples simples
@@ -194,7 +195,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
     conn.close()
     
     if not rows:
-        logger.info(f'Aucune entreprise avec website pour l\'analyse {analysis_id}')
+        logger.info(f'Aucune entreprise avec website pour l analyse {analysis_id}')
         return {
             'success': True,
             'analysis_id': analysis_id,
@@ -220,6 +221,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
         'total_images': 0
     }
     tech_tasks = []  # Stocker les tâches d'analyse technique lancées
+    osint_tasks = []  # Stocker les tâches d'analyse OSINT lancées
     
     # Lancer TOUTES les analyses techniques en parallèle AVANT de commencer le scraping
     from tasks.technical_analysis_tasks import technical_analysis_task
@@ -248,6 +250,9 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
     def update_progress(message: str, current_index: int, entreprise_name: str, website: str,
                         current_stats: Dict, extra_meta: Dict = None):
         """Met à jour la progression globale pour l'UI."""
+        # Recalculer les IDs OSINT à chaque fois car ils sont ajoutés progressivement
+        osint_tasks_launched_ids = [{'task_id': t['task_id'], 'entreprise_id': t['entreprise_id'], 'url': t['url'], 'nom': t['nom']} for t in osint_tasks]
+        
         meta = {
             'current': current_index,
             'total': total,
@@ -260,7 +265,8 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
             'total_social_platforms': current_stats['total_social_platforms'],
             'total_technologies': current_stats['total_technologies'],
             'total_images': current_stats['total_images'],
-            'tech_tasks_launched_ids': tech_tasks_launched_ids  # Inclure les IDs pour le monitoring
+            'tech_tasks_launched_ids': tech_tasks_launched_ids,  # Inclure les IDs pour le monitoring
+            'osint_tasks_launched_ids': osint_tasks_launched_ids  # Inclure les IDs OSINT pour le monitoring (recalculé à chaque fois)
         }
         if extra_meta and isinstance(extra_meta, dict):
             meta.update(extra_meta)
@@ -433,6 +439,135 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
                     duration=results.get('duration', 0),
                     email_analyses=email_analyses if email_analyses else None
                 )
+                
+                # Enregistrer les personnes détectées depuis les emails dans la table personnes
+                if email_analyses:
+                    people_saved = 0
+                    for email_str, analysis in email_analyses.items():
+                        if analysis.get('is_person') and analysis.get('name_info'):
+                            name_info = analysis['name_info']
+                            first_name = name_info.get('first_name')
+                            last_name = name_info.get('last_name')
+                            
+                            if first_name and last_name:
+                                # Valider que c'est bien un nom humain avant de sauvegarder
+                                validated = validate_name_pair(first_name, last_name)
+                                if not validated:
+                                    # Si validate_name_pair échoue, essayer avec is_valid_human_name
+                                    full_name = f'{first_name} {last_name}'
+                                    if not is_valid_human_name(full_name):
+                                        logger.debug(
+                                            f'[Scraping Analyse {analysis_id}] ⚠ Nom invalide ignoré depuis email: '
+                                            f'{first_name} {last_name} ({email_str})'
+                                        )
+                                        continue
+                                    # Valider chaque partie individuellement
+                                    if not is_valid_human_name(first_name) or not is_valid_human_name(last_name):
+                                        logger.debug(
+                                            f'[Scraping Analyse {analysis_id}] ⚠ Nom invalide ignoré depuis email: '
+                                            f'{first_name} {last_name} ({email_str})'
+                                        )
+                                        continue
+                                else:
+                                    # Utiliser les versions validées
+                                    first_name, last_name = validated
+                                
+                                try:
+                                    personne_id = db.save_personne(
+                                        entreprise_id=entreprise_id,
+                                        prenom=first_name,
+                                        nom=last_name,
+                                        email=email_str,
+                                        source='scraper_email'
+                                    )
+                                    people_saved += 1
+                                    logger.debug(
+                                        f'[Scraping Analyse {analysis_id}] ✓ Personne enregistrée: '
+                                        f'{first_name} {last_name} ({email_str})'
+                                    )
+                                except Exception as person_error:
+                                    logger.warning(
+                                        f'[Scraping Analyse {analysis_id}] ⚠ Erreur lors de l\'enregistrement '
+                                        f'de la personne {first_name} {last_name}: {person_error}'
+                                    )
+                    
+                    if people_saved > 0:
+                        logger.info(
+                            f'[Scraping Analyse {analysis_id}] ✓ {people_saved} personne(s) enregistrée(s) '
+                            f'depuis les emails pour {entreprise_name}'
+                        )
+                
+                # Enregistrer les personnes trouvées dans les textes des pages
+                scraper_people = results.get('people', [])
+                if scraper_people:
+                    people_from_text_saved = 0
+                    for person in scraper_people:
+                        person_name = person.get('name', '')
+                        first_name = person.get('first_name')
+                        last_name = person.get('last_name')
+                        
+                        # Si on a first_name et last_name séparés, les utiliser
+                        if not first_name or not last_name:
+                            # Essayer de séparer le nom
+                            name_parts = person_name.split()
+                            if len(name_parts) >= 2:
+                                first_name = name_parts[0]
+                                last_name = ' '.join(name_parts[1:])
+                            else:
+                                continue
+                        
+                        # Valider que c'est bien un nom humain avant de sauvegarder
+                        if first_name and last_name:
+                            # Valider avec validate_name_pair (plus strict)
+                            validated = validate_name_pair(first_name, last_name)
+                            if not validated:
+                                # Si validate_name_pair échoue, essayer avec is_valid_human_name sur le nom complet
+                                full_name = f'{first_name} {last_name}'
+                                if not is_valid_human_name(full_name):
+                                    logger.debug(
+                                        f'[Scraping Analyse {analysis_id}] ⚠ Nom invalide ignoré: '
+                                        f'{first_name} {last_name}'
+                                    )
+                                    continue
+                                # Si is_valid_human_name passe mais pas validate_name_pair, 
+                                # valider chaque partie individuellement
+                                if not is_valid_human_name(first_name) or not is_valid_human_name(last_name):
+                                    logger.debug(
+                                        f'[Scraping Analyse {analysis_id}] ⚠ Nom invalide ignoré: '
+                                        f'{first_name} {last_name}'
+                                    )
+                                    continue
+                            else:
+                                # Utiliser les versions validées
+                                first_name, last_name = validated
+                            
+                            try:
+                                personne_id = db.save_personne(
+                                    entreprise_id=entreprise_id,
+                                    prenom=first_name,
+                                    nom=last_name,
+                                    email=person.get('email'),
+                                    telephone=person.get('phone'),
+                                    linkedin_url=person.get('linkedin_url'),
+                                    titre=person.get('title'),
+                                    source=person.get('source', 'website_scraping')
+                                )
+                                people_from_text_saved += 1
+                                logger.debug(
+                                    f'[Scraping Analyse {analysis_id}] ✓ Personne trouvée dans le texte: '
+                                    f'{first_name} {last_name}'
+                                )
+                            except Exception as person_error:
+                                logger.warning(
+                                    f'[Scraping Analyse {analysis_id}] ⚠ Erreur lors de l\'enregistrement '
+                                    f'de la personne {first_name} {last_name}: {person_error}'
+                                )
+                    
+                    if people_from_text_saved > 0:
+                        logger.info(
+                            f'[Scraping Analyse {analysis_id}] ✓ {people_from_text_saved} personne(s) enregistrée(s) '
+                            f'depuis les textes des pages pour {entreprise_name}'
+                        )
                 logger.info(
                     f'Scraper sauvegardé (id={scraper_id}) pour entreprise {entreprise_id} '
                     f'avec {results.get("total_emails", 0)} emails, '
@@ -442,6 +577,59 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
                     f'{results.get("total_technologies", 0)} technos, '
                     f'{results.get("total_images", 0)} images'
                 )
+                
+                # Lancer l'analyse OSINT après le scraper (utilise les données du scraper)
+                try:
+                    from tasks.osint_tasks import osint_analysis_task
+                    
+                    # Préparer les données du scraper pour l'OSINT
+                    people_from_scrapers = results.get('people', [])
+                    emails_from_scrapers = []
+                    for email_data in results.get('emails', []):
+                        if isinstance(email_data, dict):
+                            email_str = email_data.get('email') or email_data.get('value') or str(email_data)
+                        else:
+                            email_str = str(email_data)
+                        if email_str:
+                            emails_from_scrapers.append(email_str)
+                    
+                    social_profiles_from_scrapers = results.get('social_links', [])
+                    phones_from_scrapers = results.get('phones', [])
+                    
+                    logger.info(
+                        f'[Scraping Analyse {analysis_id}] Lancement de l\'analyse OSINT pour {entreprise_name} '
+                        f'avec {len(people_from_scrapers)} personne(s), {len(emails_from_scrapers)} email(s), '
+                        f'{len(social_profiles_from_scrapers)} réseau(x) social/social, {len(phones_from_scrapers)} téléphone(s) du scraper'
+                    )
+                    
+                    # Lancer la tâche OSINT en arrière-plan (ne pas attendre)
+                    osint_task = osint_analysis_task.delay(
+                        url=website_str,
+                        entreprise_id=entreprise_id,
+                        people_from_scrapers=people_from_scrapers,
+                        emails_from_scrapers=emails_from_scrapers,
+                        social_profiles_from_scrapers=social_profiles_from_scrapers,
+                        phones_from_scrapers=phones_from_scrapers
+                    )
+                    
+                    # Stocker la tâche OSINT pour le monitoring
+                    osint_tasks.append({
+                        'task': osint_task,
+                        'task_id': osint_task.id,
+                        'entreprise_id': entreprise_id,
+                        'url': website_str,
+                        'nom': entreprise_name
+                    })
+                    
+                    logger.info(
+                        f'[Scraping Analyse {analysis_id}] ✓ Analyse OSINT lancée pour {entreprise_name} '
+                        f'(task_id={osint_task.id})'
+                    )
+                except Exception as osint_error:
+                    logger.warning(
+                        f'[Scraping Analyse {analysis_id}] ⚠ Erreur lors du lancement de l\'analyse OSINT pour {entreprise_name}: {osint_error}',
+                        exc_info=True
+                    )
                 
                 # Mettre à jour l'entreprise avec resume, logo, favicon, og_image depuis les résultats du scraper
                 # Les données OpenGraph sont sauvegardées dans les tables normalisées
@@ -558,6 +746,7 @@ def scrape_analysis_task(self, analysis_id: int, max_depth: int = 2, max_workers
         'scraped_count': scraped_count,
         'total_entreprises': total,
         'stats': global_stats,
-        'tech_tasks': [{'task_id': t['task'].id, 'entreprise_id': t['entreprise_id'], 'url': t['url'], 'nom': t['nom']} for t in tech_tasks]
+        'tech_tasks': [{'task_id': t['task'].id, 'entreprise_id': t['entreprise_id'], 'url': t['url'], 'nom': t['nom']} for t in tech_tasks],
+        'osint_tasks': [{'task_id': t['task_id'], 'entreprise_id': t['entreprise_id'], 'url': t['url'], 'nom': t['nom']} for t in osint_tasks]
     }
 

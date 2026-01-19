@@ -1164,9 +1164,9 @@ class TechnicalAnalyzer:
                     if 'ssl_valid' not in results or results.get('ssl_valid') is None:
                         results['ssl_valid'] = True
                 except Exception:
-                    # Si l'analyse SSL échoue mais que l'URL est en HTTPS, on considère SSL comme valide
-                    # (le site peut être accessible en HTTPS même si l'analyse échoue)
-                    results['ssl_valid'] = True
+                        # Si l'analyse SSL échoue mais que l'URL est en HTTPS, on considère SSL comme valide
+                        # (le site peut être accessible en HTTPS même si l'analyse échoue)
+                        results['ssl_valid'] = True
             else:
                 # Si l'URL est en HTTP, SSL n'est pas valide
                 results['ssl_valid'] = False
