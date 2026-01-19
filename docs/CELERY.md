@@ -174,12 +174,70 @@ Analyse technique d'un site web.
 **Parametres :**
 - `url` : URL du site
 - `entreprise_id` : ID entreprise (optionnel)
+- `enable_nmap` : Activer le scan Nmap (optionnel, défaut: False)
+
+**Retour :**
+```python
+{
+    'success': True,
+    'url': url,
+    'entreprise_id': entreprise_id,
+    'analysis_id': analysis_id,
+    'results': {...}
+}
+```
+
+### pentest_tasks.py
+
+#### pentest_analysis_task
+Analyse de sécurité (Pentest) d'un site web avec tests de vulnérabilités.
+
+**Parametres :**
+- `url` : URL du site à analyser
+- `entreprise_id` : ID entreprise (optionnel)
+- `options` : Options de scan (scan_sql, scan_xss, etc.) (optionnel)
+- `forms_from_scrapers` : Liste des formulaires détectés par le scraper (optionnel)
+
+**Retour :**
+```python
+{
+    'success': True,
+    'analysis_id': analysis_id,
+    'url': url,
+    'summary': {...},
+    'risk_score': 0-100,
+    'forms_checks': [...]
+}
+```
+
+**Note:** Cette tâche teste automatiquement la sécurité des formulaires détectés par le scraper si `forms_from_scrapers` est fourni.
 
 ### osint_tasks.py
 
 #### osint_analysis_task
-- Analyse OSINT d'un site / organisation, avec enrichissement des personnes.
-- Parametres principaux : `url`, `entreprise_id`, `people_from_scrapers`, `emails_from_scrapers`, `social_profiles_from_scrapers`, `phones_from_scrapers`.
+Analyse OSINT d'un site / organisation, avec enrichissement des personnes.
+
+**Parametres :**
+- `url` : URL du site
+- `entreprise_id` : ID entreprise (optionnel)
+- `people_from_scrapers` : Liste des personnes trouvées par les scrapers (optionnel)
+- `emails_from_scrapers` : Liste des emails trouvés par les scrapers (optionnel)
+- `social_profiles_from_scrapers` : Liste des profils sociaux trouvés (optionnel)
+- `phones_from_scrapers` : Liste des téléphones trouvés (optionnel)
+
+**Retour :**
+```python
+{
+    'success': True,
+    'url': url,
+    'entreprise_id': entreprise_id,
+    'analysis_id': analysis_id,
+    'summary': {...},
+    'updated': False
+}
+```
+
+**Note:** Les personnes enrichies sont automatiquement sauvegardées dans la table `personnes` avec les données OSINT.
 
 ## Suivi temps reel (WebSocket + OSINT)
 
@@ -286,6 +344,8 @@ Les logs par tache sont dans :
 - `logs/scraping_tasks.log`
 - `logs/email_tasks.log`
 - `logs/technical_analysis_tasks.log`
+- `logs/pentest_tasks.log` (niveau DEBUG pour détails complets)
+- `logs/osint_tasks.log` (niveau INFO)
 - `logs/cleanup_tasks.log`
 
 ## Monitoring

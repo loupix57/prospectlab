@@ -1,17 +1,17 @@
 """
-Tâches Celery pour les analyses techniques et Pentest
+Tâches Celery pour les analyses techniques
 
 Ces tâches permettent d'exécuter les analyses techniques de manière asynchrone,
 avec sauvegarde automatique dans la base de données.
+
+Note: Les tâches Pentest sont dans tasks/pentest_tasks.py
 """
 
 from celery_app import celery
 from services.technical_analyzer import TechnicalAnalyzer
-from services.pentest_analyzer import PentestAnalyzer
 from services.database import Database
 from services.logging_config import setup_logger
 import logging
-import json
 
 # Configurer le logger pour cette tâche (niveau INFO pour limiter le bruit)
 logger = setup_logger(__name__, 'technical_analysis_tasks.log', level=logging.INFO)
@@ -86,92 +86,6 @@ def technical_analysis_task(self, url, entreprise_id=None, enable_nmap=False):
         
     except Exception as e:
         logger.error(f'Erreur lors de l analyse technique de {url}: {e}', exc_info=True)
-        raise
-
-
-@celery.task(bind=True)
-def pentest_analysis_task(self, url, entreprise_id=None, options=None):
-    """
-    Tâche Celery pour effectuer une analyse Pentest d'un site web
-    
-    Args:
-        self: Instance de la tâche Celery (bind=True)
-        url (str): URL du site à analyser
-        entreprise_id (int, optional): ID de l'entreprise associée
-        options (dict, optional): Options pour l'analyse (scan_sql, scan_xss, etc.)
-        
-    Returns:
-        dict: Résultats de l'analyse Pentest avec analysis_id
-        
-    Example:
-        >>> result = pentest_analysis_task.delay('https://example.com', entreprise_id=1, options={'scan_sql': True})
-    """
-    try:
-        logger.info(f'Démarrage de l\'analyse Pentest pour {url}')
-        
-        database = Database()
-        
-        # Vérifier si une analyse existe déjà
-        existing = database.get_pentest_analysis_by_url(url)
-        if existing:
-            # Si une analyse existe et qu'on a un entreprise_id, mettre à jour le lien
-            if entreprise_id and existing.get('entreprise_id') != entreprise_id:
-                conn = database.get_connection()
-                cursor = conn.cursor()
-                cursor.execute('UPDATE analyses_pentest SET entreprise_id = ? WHERE id = ?', (entreprise_id, existing['id']))
-                conn.commit()
-                conn.close()
-        
-        self.update_state(
-            state='PROGRESS',
-            meta={'progress': 5, 'message': 'Initialisation de l\'analyse de sécurité...'}
-        )
-        
-        analyzer = PentestAnalyzer()
-        
-        self.update_state(
-            state='PROGRESS',
-            meta={'progress': 20, 'message': 'Scan de vulnérabilités en cours...'}
-        )
-        
-        # Lancer l'analyse Pentest
-        if options is None:
-            options = {}
-        pentest_data = analyzer.analyze_pentest(url, options)
-        
-        if pentest_data.get('error'):
-            raise Exception(pentest_data['error'])
-        
-        self.update_state(
-            state='PROGRESS',
-            meta={'progress': 90, 'message': 'Sauvegarde des résultats...'}
-        )
-        
-        # Sauvegarder ou mettre à jour dans la base de données
-        if existing:
-            analysis_id = database.update_pentest_analysis(existing['id'], pentest_data)
-        else:
-            analysis_id = database.save_pentest_analysis(entreprise_id, url, pentest_data)
-        
-        self.update_state(
-            state='PROGRESS',
-            meta={'progress': 100, 'message': 'Analyse de sécurité terminée!'}
-        )
-        
-        logger.info(f'Analyse Pentest terminée pour {url} (analysis_id: {analysis_id})')
-        
-        return {
-            'success': True,
-            'url': url,
-            'entreprise_id': entreprise_id,
-            'analysis_id': analysis_id,
-            'summary': pentest_data.get('summary', {}),
-            'risk_score': pentest_data.get('risk_score', 0),
-            'updated': existing is not None
-        }
-        
-    except Exception as e:
-        logger.error(f'Erreur lors de l analyse Pentest de {url}: {e}', exc_info=True)
         raise
 
 

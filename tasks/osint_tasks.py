@@ -40,14 +40,14 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
         >>> result = osint_analysis_task.delay('https://example.com', entreprise_id=1)
     """
     try:
-        logger.info(f'Démarrage de l analyse OSINT pour {url} (entreprise_id={entreprise_id})')
+        logger.info(f'Démarrage analyse OSINT pour {url} (entreprise_id={entreprise_id})')
         
         database = Database()
         
         # Vérifier si une analyse existe déjà
         existing = database.get_osint_analysis_by_url(url)
         if existing:
-            logger.info(f'[OSINT] Une analyse OSINT existe déjà pour {url} (id={existing.get("id")})')
+            logger.debug(f'Analyse OSINT existante pour {url} (id={existing.get("id")})')
             # Si une analyse existe et qu'on a un entreprise_id, mettre à jour le lien
             if entreprise_id and existing.get('entreprise_id') != entreprise_id:
                 conn = database.get_connection()
@@ -55,22 +55,20 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
                 cursor.execute('UPDATE analyses_osint SET entreprise_id = ? WHERE id = ?', (entreprise_id, existing['id']))
                 conn.commit()
                 conn.close()
-                logger.info(f'[OSINT] Analyse OSINT mise à jour avec entreprise_id={entreprise_id}')
+                logger.debug(f'Analyse OSINT mise à jour avec entreprise_id={entreprise_id}')
         
         self.update_state(
             state='PROGRESS',
             meta={'progress': 5, 'message': 'Initialisation de l\'analyse OSINT...'}
         )
         
-        logger.info(f'Initialisation de l analyseur OSINT pour {url}')
         analyzer = OSINTAnalyzer()
         
-        # Callback pour mettre à jour la progression avec logs
+        # Callback pour mettre à jour la progression
         current_progress = 5
         def progress_update(message):
             nonlocal current_progress
             current_progress = min(current_progress + 5, 95)
-            logger.debug(f'Progression {current_progress}% - {message}')
             self.update_state(
                 state='PROGRESS',
                 meta={'progress': current_progress, 'message': message}
@@ -80,7 +78,6 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
             state='PROGRESS',
             meta={'progress': 10, 'message': 'Préparation des données du scraper...'}
         )
-        logger.info(f'Préparation des données du scraper pour {url}...')
         
         # Récupérer les personnes depuis la table personnes (priorité) ou depuis les scrapers
         if not people_from_scrapers and entreprise_id:
@@ -98,7 +95,6 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
                                 'title': personne.get('titre'),
                                 'role': personne.get('role')
                             })
-                    logger.debug(f'{len(people_from_scrapers)} personne(s) récupérée(s) depuis la table personnes')
                 
                 # Si pas de personnes en BDD, récupérer depuis les scrapers
                 if not people_from_scrapers:
@@ -140,7 +136,7 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
             ]
             filtered_count = len(people_from_scrapers)
             if original_count != filtered_count:
-                logger.debug(f'{filtered_count} personne(s) valide(s) après filtrage sur {original_count} personne(s)')
+                logger.debug(f'Filtrage: {filtered_count}/{original_count} personne(s) valide(s)')
         
         # Extraire les emails et les noms associés depuis les scrapers
         emails_from_scrapers = emails_from_scrapers or []
@@ -181,7 +177,6 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
                 
                 # Filtrer les noms invalides après extraction
                 names_from_scraper_emails = filter_valid_names(names_from_scraper_emails)
-                logger.debug(f'{len(names_from_scraper_emails)} nom(s) valide(s) après filtrage')
             except Exception as e:
                 logger.warning(f'Erreur lors de l extraction des noms depuis les emails: {e}')
         
@@ -246,16 +241,11 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
                 phones_from_scrapers = []
         
         logger.info(
-            f'Données du scraper pour {url}: '
-            f'{len(people_from_scrapers or [])} personne(s), '
+            f'Données scraper: {len(people_from_scrapers or [])} personne(s), '
             f'{len(emails_from_scrapers or [])} email(s), '
             f'{len(social_profiles_from_scrapers or [])} réseau(x) social, '
-            f'{len(phones_from_scrapers or [])} téléphone(s), '
-            f'{len(names_from_scraper_emails)} nom(s) extrait(s) des emails'
+            f'{len(phones_from_scrapers or [])} téléphone(s)'
         )
-        
-        # Lancer l'analyse OSINT avec callback de progression et données des scrapers
-        logger.info(f'Démarrage de l analyse OSINT complète pour {url}...')
         osint_data = analyzer.analyze_osint(
             url, 
             progress_callback=progress_update, 
@@ -267,10 +257,8 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
         )
         
         if osint_data.get('error'):
-            logger.error(f'[OSINT] Erreur dans l\'analyse OSINT pour {url}: {osint_data["error"]}')
+            logger.error(f'Erreur analyse OSINT pour {url}: {osint_data["error"]}')
             raise Exception(osint_data['error'])
-        
-        logger.info(f'[OSINT] Analyse OSINT terminée pour {url}, sauvegarde des résultats...')
         
         # Sauvegarder les personnes enrichies dans la table personnes avec données OSINT
         if entreprise_id and osint_data.get('people'):
@@ -324,11 +312,10 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
                                     personne_id=personne_id,
                                     enriched_data=enriched_data
                                 )
-                                logger.info(f'[OSINT] Données enrichies sauvegardées pour {person_key}')
                             except Exception as e:
-                                logger.warning(f'[OSINT] Erreur lors de la sauvegarde des détails OSINT pour {person_key}: {e}')
+                                logger.debug(f'Erreur sauvegarde détails OSINT pour {person_key}: {e}')
             except Exception as e:
-                logger.warning(f'[OSINT] Erreur lors de la sauvegarde des personnes: {e}')
+                logger.warning(f'Erreur sauvegarde personnes: {e}')
         
         self.update_state(
             state='PROGRESS',
@@ -346,18 +333,7 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
             meta={'progress': 100, 'message': 'Analyse OSINT terminée!'}
         )
         
-        logger.info(
-            f'[OSINT] ===== Analyse OSINT terminée avec succès pour {url} ====='
-        )
-        logger.info(
-            f'[OSINT] Analysis ID: {analysis_id}, Entreprise ID: {entreprise_id}'
-        )
-        logger.info(
-            f'[OSINT] Résumé: {osint_data.get("summary", {})}'
-        )
-        logger.info(
-            f'[OSINT] Mise à jour: {existing is not None}'
-        )
+        logger.info(f'Analyse OSINT terminée pour {url} (id={analysis_id})')
         
         return {
             'success': True,
@@ -369,16 +345,7 @@ def osint_analysis_task(self, url, entreprise_id=None, people_from_scrapers=None
         }
         
     except Exception as e:
-        logger.error(
-            f'[OSINT] ===== ERREUR lors de l\'analyse OSINT de {url} ====='
-        )
-        logger.error(
-            f'[OSINT] Erreur: {e}'
-        )
-        logger.error(
-            f'[OSINT] Entreprise ID: {entreprise_id}',
-            exc_info=True
-        )
+        logger.error(f'Erreur analyse OSINT pour {url}: {e}', exc_info=True)
         raise
 
 
