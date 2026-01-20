@@ -203,6 +203,11 @@ prospectlab/
 ├── static/                # Ressources statiques
 │   ├── css/               # Feuilles de style
 │   ├── js/                # Scripts JavaScript
+│   │   ├── modules/       # Architecture modulaire JS
+│   │   │   ├── utils/     # Modules utilitaires (formatters, badges, notifications)
+│   │   │   ├── entreprises/ # Module API entreprises
+│   │   │   └── analyses/  # Modules d'affichage des analyses (technical, osint, pentest, scraping)
+│   │   └── *.js           # Scripts spécifiques aux pages
 │   └── favicon/           # Favicons
 ├── logs/                  # Logs de l'application (rotation automatique)
 │   ├── prospectlab.log    # Logs Flask
@@ -226,9 +231,10 @@ L'application utilise une architecture moderne et modulaire :
 
 ### Frontend
 - **HTML5/CSS3** : Interface responsive et moderne
-- **JavaScript vanilla** : Pas de framework lourd, code optimisé
+- **JavaScript vanilla modulaire** : Architecture modulaire avec modules réutilisables (utils, API, analyses)
 - **Socket.IO client** : Mises à jour en temps réel de la progression
 - **Fetch API** : Appels API REST asynchrones
+- **Architecture modulaire JS** : Code organisé en modules (`static/js/modules/`) pour faciliter la maintenance et la réutilisation
 
 ### Flux de traitement
 1. **Upload Excel** : Validation et prévisualisation
@@ -286,6 +292,7 @@ La documentation complète est disponible dans le dossier `docs/`. Consultez [do
 - **Interface utilisateur** : [docs/guides/INTERFACE_UTILISATEUR.md](docs/guides/INTERFACE_UTILISATEUR.md) - Guide complet de l'interface
 - **Scraping** : [docs/SCRAPING.md](docs/SCRAPING.md) - Documentation du système de scraping unifié
 - **Celery** : [docs/CELERY.md](docs/CELERY.md) - Configuration et utilisation de Celery
+- **Architecture JavaScript** : [static/js/modules/README.md](static/js/modules/README.md) - Documentation de l'architecture modulaire JS
 - **Outils OSINT/Pentest** : [docs/installation/INSTALLATION_TOOLS.md](docs/installation/INSTALLATION_TOOLS.md)
 - **Scripts utilitaires** : [docs/scripts/SCRIPTS.md](docs/scripts/SCRIPTS.md) - Scripts PowerShell et Bash
 

@@ -7,6 +7,7 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis�
 - [README principal](../README.md) - Vue d'ensemble et installation rapide
 - [Guide Celery](CELERY.md) - Configuration et utilisation de Celery pour les taches asynchrones
 - [Guide Scraping](SCRAPING.md) - Documentation complete du systeme de scraping unifie
+- [Architecture JavaScript modulaire](../static/js/modules/README.md) - Documentation de l'architecture modulaire JS
 
 ## Installation
 
@@ -27,7 +28,8 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis�
 
 ## Documentation technique
 
-- [Architecture](architecture/ARCHITECTURE.md) - Documentation de l'architecture modulaire
+- [Architecture](architecture/ARCHITECTURE.md) - Documentation de l'architecture modulaire backend
+- [Architecture JavaScript modulaire](../static/js/modules/README.md) - Documentation de l'architecture modulaire frontend JS
 - [Architecture distribuée (Raspberry Pi)](developpement/ARCHITECTURE_DISTRIBUEE_RASPBERRY.md) - Utilisation d'un cluster de Raspberry Pi comme workers Celery
 - [Migration](architecture/MIGRATION.md) - Guide de migration vers la nouvelle architecture
 - [WebSocket](techniques/WEBSOCKET.md) - Documentation sur la communication WebSocket
@@ -41,6 +43,10 @@ Bienvenue dans la documentation de ProspectLab. Cette documentation est organis�
 - [Séparation des Scripts](developpement/SEPARATION_SCRIPTS.md) - Refactorisation des scripts JavaScript inline vers des fichiers externes
 - [Architecture distribuée Raspberry Pi](developpement/ARCHITECTURE_DISTRIBUEE_RASPBERRY.md) - Notes de travail sur l'utilisation des Raspberry Pi comme workers Celery
 - [Analyse des emails pendant le scraping](developpement/ANALYSE_EMAILS_SCRAPING.md) - Implémentation de l'analyse automatique des emails et corrections associées
+
+## Fichiers obsolètes
+
+- [Fichiers obsolètes](FICHIERS_OBSOLETES.md) - Liste des fichiers obsolètes conservés pour référence
 
 ## Structure de la base de donnees
 

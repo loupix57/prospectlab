@@ -8,9 +8,7 @@ ProspectLab utilise une architecture modulaire avec Flask, Celery et WebSockets 
 
 ```
 prospectlab/
-├── app.py                 # Application Flask principale (ancienne version)
-├── app_new.py             # Application Flask refactorisée (nouvelle version)
-├── app_old.py             # Sauvegarde de l'ancienne version
+├── app.py                 # Application Flask principale (architecture modulaire)
 ├── celery_app.py          # Configuration Celery
 ├── config.py              # Configuration de l'application
 ├── routes/                # Blueprints Flask
@@ -37,7 +35,7 @@ prospectlab/
 
 ## Composants principaux
 
-### 1. Application Flask (app_new.py)
+### 1. Application Flask (app.py)
 
 Point d'entrée principal de l'application. Initialise Flask, Celery et SocketIO, et enregistre les blueprints.
 
@@ -107,6 +105,46 @@ Les tâches Celery exécutent les opérations longues de manière asynchrone :
 Fonctions utilitaires réutilisables :
 - `helpers.py` - Fonctions d'aide (validation de fichiers, émission WebSocket sécurisée, etc.)
 
+### 5. Architecture Frontend JavaScript (static/js/)
+
+Le frontend utilise une architecture modulaire JavaScript pour faciliter la maintenance et la réutilisation du code :
+
+#### Structure modulaire (`static/js/modules/`)
+
+```
+modules/
+├── utils/              # Modules utilitaires partagés
+│   ├── formatters.js  # Formatage (ms, bytes, HTML escape)
+│   ├── badges.js      # Génération de badges (scores, statuts)
+│   ├── notifications.js # Système de notifications
+│   └── debounce.js    # Fonction debounce
+├── entreprises/       # Modules spécifiques aux entreprises
+│   └── api.js         # Appels API pour les entreprises
+└── analyses/          # Modules pour les analyses
+    ├── technical.js  # Affichage des analyses techniques
+    ├── osint.js      # Affichage des analyses OSINT
+    ├── pentest.js    # Affichage des analyses Pentest
+    └── scraping.js    # Affichage des résultats de scraping
+```
+
+#### Principes de l'architecture modulaire
+
+1. **Modules autonomes** : Chaque module expose ses fonctionnalités via un objet global (ex: `window.Formatters`)
+2. **Pas de dépendances circulaires** : Les modules utils ne dépendent d'aucun autre module
+3. **Chargement ordonné** : Les dépendances sont chargées avant les modules qui les utilisent
+4. **Optimisation** : Utilisation de `defer` pour les scripts non critiques
+
+#### Scripts spécifiques aux pages
+
+- `entreprises.refactored.js` : Script principal de la page entreprises (utilise les modules)
+- `dashboard.js` : Dashboard avec graphiques Chart.js
+- `upload.js` : Gestion de l'upload de fichiers Excel
+- `preview.js` : Prévisualisation des fichiers Excel
+- `websocket.js` : Gestion de la connexion WebSocket globale
+- `main.js` : Scripts communs à toutes les pages
+
+Pour plus de détails, voir [la documentation complète de l'architecture JS](../static/js/modules/README.md).
+
 ## Flux de données
 
 ### Analyse d'entreprises
@@ -163,7 +201,7 @@ celery -A celery_app worker --loglevel=info
 
 3. **Démarrer l'application Flask** :
 ```bash
-python app_new.py
+python app.py
 ```
 
 ### Production
@@ -171,18 +209,18 @@ python app_new.py
 Pour la production, utilisez un serveur WSGI comme Gunicorn avec SocketIO :
 
 ```bash
-gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 app_new:app
+gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 app:app
 ```
 
 Et démarrez Celery comme service système.
 
-## Migration depuis l'ancienne version
+## Architecture actuelle
 
-L'ancienne version (`app.py`) est toujours disponible pour compatibilité. Pour migrer :
-
-1. Testez `app_new.py` en développement
-2. Migrez progressivement les routes restantes vers les blueprints
-3. Une fois tout migré, renommez `app_new.py` en `app.py`
+L'application utilise maintenant une architecture modulaire complète :
+- Backend : Flask avec Blueprints, Celery pour les tâches asynchrones
+- Frontend : Architecture JavaScript modulaire avec modules réutilisables
+- Base de données : SQLite avec schéma normalisé et relations
+- Communication : WebSockets pour les mises à jour en temps réel
 
 ## Prochaines étapes
 
