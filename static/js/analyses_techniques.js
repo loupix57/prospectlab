@@ -742,7 +742,7 @@
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- En-tête avec informations générales -->
                 <div class="detail-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin: 0 0 1rem 0; color: white;">📊 Informations générales</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: white;"><i class="fas fa-chart-bar"></i> Informations générales</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; color: white;">
                         <div><strong>📅 Date:</strong> ${date}</div>
                         <div><strong>🌐 URL:</strong> <a href="${currentAnalysisData.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${currentAnalysisData.url}</a></div>
@@ -842,7 +842,7 @@
                 
                 <!-- Serveur et infrastructure -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🖥️ Serveur et infrastructure</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-server"></i> Serveur et infrastructure</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${currentAnalysisData.server_software ? `<div class="info-row"><span class="info-label">Logiciel serveur:</span><span class="info-value"><span class="badge badge-info">${currentAnalysisData.server_software}</span></span></div>` : ''}
                         ${currentAnalysisData.framework ? `<div class="info-row"><span class="info-label">Framework:</span><span class="info-value"><span class="badge badge-primary">${currentAnalysisData.framework}${currentAnalysisData.framework_version ? ' ' + currentAnalysisData.framework_version : ''}</span></span></div>` : ''}
@@ -864,7 +864,7 @@
                 
                 <!-- Domaine et DNS -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🌍 Domaine et DNS</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-globe-europe"></i> Domaine et DNS</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${currentAnalysisData.domain_creation_date ? `<div class="info-row"><span class="info-label">Date de création:</span><span class="info-value">${currentAnalysisData.domain_creation_date}</span></div>` : ''}
                         ${currentAnalysisData.domain_updated_date ? `<div class="info-row"><span class="info-label">Dernière mise à jour:</span><span class="info-value">${currentAnalysisData.domain_updated_date}</span></div>` : ''}
@@ -910,7 +910,7 @@
                 
                 ${currentAnalysisData.analytics && Array.isArray(currentAnalysisData.analytics) && currentAnalysisData.analytics.length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">📈 Outils d'analyse <span class="badge badge-info">${currentAnalysisData.analytics.length}</span></h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-chart-line"></i> Outils d'analyse <span class="badge badge-info">${currentAnalysisData.analytics.length}</span></h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                         ${currentAnalysisData.analytics.map(tool => {
                             let label = '';
@@ -941,7 +941,7 @@
                 
                 ${currentAnalysisData.performance_metrics && typeof currentAnalysisData.performance_metrics === 'object' && !Array.isArray(currentAnalysisData.performance_metrics) && Object.keys(currentAnalysisData.performance_metrics).length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">⚡ Métriques de performance</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-bolt"></i> Métriques de performance</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${Object.entries(currentAnalysisData.performance_metrics).map(([key, value]) => 
                             `<div class="info-row"><span class="info-label">${escapeHtml(key)}:</span><span class="info-value"><strong>${escapeHtml(String(value || 'N/A'))}</strong></span></div>`
@@ -962,7 +962,7 @@
                 
                 ${currentAnalysisData.technical_details ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔧 Détails techniques</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-tools"></i> Détails techniques</h3>
                     <details style="cursor: pointer;">
                         <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir tous les détails</summary>
                         <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${escapeHtml(JSON.stringify(currentAnalysisData.technical_details, null, 2))}</pre>

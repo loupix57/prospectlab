@@ -113,6 +113,20 @@ class ProspectLabWebSocket {
             this.onAnalysisStopped(data);
         });
 
+        // Événements Pentest
+        this.socket.on('pentest_analysis_started', (data) => {
+            this.onPentestAnalysisStarted(data);
+        });
+        this.socket.on('pentest_analysis_progress', (data) => {
+            this.onPentestAnalysisProgress(data);
+        });
+        this.socket.on('pentest_analysis_complete', (data) => {
+            this.onPentestAnalysisComplete(data);
+        });
+        this.socket.on('pentest_analysis_error', (data) => {
+            this.onPentestAnalysisError(data);
+        });
+
         // Événements de scraping
         this.socket.on('scraping_started', (data) => {
             this.onScrapingStarted(data);
@@ -217,6 +231,27 @@ class ProspectLabWebSocket {
 
     onAnalysisStopped(data) {
         const event = new CustomEvent('analysis:stopped', { detail: data });
+        document.dispatchEvent(event);
+    }
+
+    // Méthodes Pentest
+    onPentestAnalysisStarted(data) {
+        const event = new CustomEvent('pentest_analysis:started', { detail: data });
+        document.dispatchEvent(event);
+    }
+
+    onPentestAnalysisProgress(data) {
+        const event = new CustomEvent('pentest_analysis:progress', { detail: data });
+        document.dispatchEvent(event);
+    }
+
+    onPentestAnalysisComplete(data) {
+        const event = new CustomEvent('pentest_analysis:complete', { detail: data });
+        document.dispatchEvent(event);
+    }
+
+    onPentestAnalysisError(data) {
+        const event = new CustomEvent('pentest_analysis:error', { detail: data });
         document.dispatchEvent(event);
     }
 

@@ -68,6 +68,168 @@
         checkConnection();
     }
     
+    // Section pour l'avancement de l'analyse Pentest
+    const pentestProgressContainer = document.createElement('div');
+    pentestProgressContainer.id = 'pentest-progress-container';
+    pentestProgressContainer.style.cssText = 'margin-top: 1.5rem; padding: 1.25rem; background: #ffffff; border-radius: 10px; border: 1px solid #f8d7da; border-left: 5px solid #c0392b; display: none; box-shadow: 0 6px 16px rgba(17,24,39,0.08);';
+
+    const pentestProgressTitleRow = document.createElement('div');
+    pentestProgressTitleRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;';
+
+    const pentestProgressTitle = document.createElement('div');
+    pentestProgressTitle.style.cssText = 'font-weight: 700; color: #111827;';
+    pentestProgressTitle.textContent = 'Analyse Pentest';
+
+    const pentestProgressCountBadge = document.createElement('div');
+    pentestProgressCountBadge.id = 'pentest-progress-count';
+    pentestProgressCountBadge.style.cssText = 'background: #fdecea; color: #c0392b; border: 1px solid #e6a1a1; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 700; white-space: nowrap;';
+    pentestProgressCountBadge.textContent = '0 / 0 entreprises';
+
+    pentestProgressTitleRow.appendChild(pentestProgressTitle);
+    pentestProgressTitleRow.appendChild(pentestProgressCountBadge);
+
+    const pentestCurrentLabelRow = document.createElement('div');
+    pentestCurrentLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;';
+
+    const pentestCurrentLabel = document.createElement('div');
+    pentestCurrentLabel.style.cssText = 'font-size: 0.85rem; color: #6b7280; font-weight: 600;';
+    pentestCurrentLabel.textContent = 'Entreprise en cours :';
+
+    const pentestCurrentInfo = document.createElement('div');
+    pentestCurrentInfo.id = 'pentest-current-info';
+    pentestCurrentInfo.style.cssText = 'font-size: 0.85rem; color: #111827; font-weight: 500; flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+    pentestCurrentInfo.textContent = '';
+
+    pentestCurrentLabelRow.appendChild(pentestCurrentLabel);
+    pentestCurrentLabelRow.appendChild(pentestCurrentInfo);
+
+    const pentestCurrentBar = document.createElement('div');
+    pentestCurrentBar.style.cssText = 'width: 100%; height: 18px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 0.75rem; position: relative;';
+
+    const pentestCurrentFill = document.createElement('div');
+    pentestCurrentFill.id = 'pentest-current-fill';
+    pentestCurrentFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;';
+
+    const pentestCurrentLabelInner = document.createElement('div');
+    pentestCurrentLabelInner.id = 'pentest-current-label';
+    pentestCurrentLabelInner.style.cssText = 'color: #ffffff; font-size: 0.8rem; font-weight: 600; white-space: nowrap;';
+    pentestCurrentLabelInner.textContent = '0%';
+
+    pentestCurrentBar.appendChild(pentestCurrentFill);
+    pentestCurrentFill.appendChild(pentestCurrentLabelInner);
+
+    const pentestTotalLabelRow = document.createElement('div');
+    pentestTotalLabelRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem;';
+
+    const pentestTotalLabel = document.createElement('div');
+    pentestTotalLabel.style.cssText = 'font-size: 0.85rem; color: #6b7280; font-weight: 600;';
+    pentestTotalLabel.textContent = 'Progression globale :';
+
+    const pentestTotalInfo = document.createElement('div');
+    pentestTotalInfo.id = 'pentest-total-info';
+    pentestTotalInfo.style.cssText = 'font-size: 0.85rem; color: #111827; font-weight: 500; flex: 1; text-align: right;';
+    pentestTotalInfo.textContent = '';
+
+    pentestTotalLabelRow.appendChild(pentestTotalLabel);
+    pentestTotalLabelRow.appendChild(pentestTotalInfo);
+
+    const pentestTotalBar = document.createElement('div');
+    pentestTotalBar.style.cssText = 'width: 100%; height: 18px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 0.75rem; position: relative;';
+
+    const pentestTotalFill = document.createElement('div');
+    pentestTotalFill.id = 'pentest-total-fill';
+    pentestTotalFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #f39c12, #d35400); width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;';
+
+    const pentestTotalLabelInner = document.createElement('div');
+    pentestTotalLabelInner.id = 'pentest-total-label';
+    pentestTotalLabelInner.style.cssText = 'color: #ffffff; font-size: 0.8rem; font-weight: 600; white-space: nowrap;';
+    pentestTotalLabelInner.textContent = '0%';
+
+    pentestTotalBar.appendChild(pentestTotalFill);
+    pentestTotalFill.appendChild(pentestTotalLabelInner);
+
+    // Section pour les totaux cumulés Pentest (similaire à OSINT)
+    const pentestCumulativeBox = document.createElement('div');
+    pentestCumulativeBox.id = 'pentest-cumulative-box';
+    pentestCumulativeBox.style.cssText = 'background: #fef2f2; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid #fecaca; border-left: 4px solid #dc2626; margin-top: 0.75rem;';
+    
+    const pentestCumulativeLabel = document.createElement('div');
+    pentestCumulativeLabel.style.cssText = 'font-size: 0.78rem; color: #991b1b; font-weight: 800; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.6px;';
+    pentestCumulativeLabel.textContent = 'Total cumulé';
+    
+    const pentestCumulativeContent = document.createElement('div');
+    pentestCumulativeContent.id = 'pentest-cumulative-content';
+    pentestCumulativeContent.style.cssText = 'color: #111827; font-size: 0.95rem; font-weight: 700; line-height: 1.6; display: flex; flex-wrap: wrap; align-items: center;';
+    pentestCumulativeContent.textContent = '';
+    
+    pentestCumulativeBox.appendChild(pentestCumulativeLabel);
+    pentestCumulativeBox.appendChild(pentestCumulativeContent);
+    
+    pentestProgressContainer.appendChild(pentestProgressTitleRow);
+    pentestProgressContainer.appendChild(pentestCurrentLabelRow);
+    pentestProgressContainer.appendChild(pentestCurrentBar);
+    pentestProgressContainer.appendChild(pentestTotalLabelRow);
+    pentestProgressContainer.appendChild(pentestTotalBar);
+    pentestProgressContainer.appendChild(pentestCumulativeBox);
+
+    // Fonction utilitaire pour afficher des toasts/notifications
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        const colors = {
+            success: { bg: '#10b981', border: '#059669' },
+            info: { bg: '#3b82f6', border: '#2563eb' },
+            warning: { bg: '#f59e0b', border: '#d97706' },
+            error: { bg: '#ef4444', border: '#dc2626' }
+        };
+        const color = colors[type] || colors.success;
+        
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${color.bg};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            font-weight: 600;
+            font-size: 0.95rem;
+            max-width: 400px;
+            border-left: 4px solid ${color.border};
+            animation: slideIn 0.3s ease-out;
+        `;
+        toast.innerHTML = message;
+        
+        // Animation CSS
+        if (!document.getElementById('toast-animations')) {
+            const style = document.createElement('style');
+            style.id = 'toast-animations';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 4000);
+    }
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -130,6 +292,16 @@
         statusDiv.className = 'status-message status-info';
         statusDiv.textContent = e.detail.message || 'Analyse démarrée...';
         progressText.textContent = 'Analyse en cours...';
+        pentestDone = false;
+        pentestProgressContainer.style.display = 'none';
+        
+        // Faire défiler vers le bas pour voir les sections de progression
+        setTimeout(() => {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 300);
     });
     
     document.addEventListener('analysis:stopping', function(e) {
@@ -384,7 +556,7 @@
 
                 // Afficher le résumé final avec le même style
                 let htmlContent = '<div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 1rem; border-radius: 6px; border-left: 3px solid #27ae60;">';
-                htmlContent += '<div style="font-size: 0.9rem; color: #229954; font-weight: 600; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">✓ Scraping terminé</div>';
+                htmlContent += '<div style="font-size: 0.9rem; color: #229954; font-weight: 600; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-check"></i> Scraping terminé</div>';
                 if (counters.length > 0) {
                     htmlContent += `<div style="color: #2c3e50; font-size: 0.95rem; font-weight: 500;">${counters.join(', ')}</div>`;
                 } else {
@@ -393,6 +565,10 @@
                 htmlContent += '</div>';
                 
                 scrapingProgressText.innerHTML = htmlContent;
+                
+                // Toast de notification
+                const scrapedCount = data.scraped_count || data.total_entreprises || 0;
+                showToast(`<i class="fas fa-check"></i> Scraping terminé pour ${scrapedCount} entreprise(s)`, 'success');
                 
                 // Déclencher l'événement personnalisé pour la redirection
                 const event = new CustomEvent('scraping_complete', { detail: data });
@@ -1010,10 +1186,12 @@
                     if (current >= total) {
                         osintDone = true;
                         osintTotalInfo.textContent = `${total} / ${total} terminées`;
+                        showToast(`<i class="fas fa-check"></i> Analyse OSINT terminée pour ${total} entreprise(s)`, 'info');
                     }
                 } else {
                     osintDone = true;
                     osintTotalInfo.textContent = 'Terminé';
+                    showToast('<i class="fas fa-check"></i> Analyse OSINT terminée', 'info');
                 }
                 
                 maybeRedirectAfterAllDone();
@@ -1027,15 +1205,193 @@
             });
         }
     }
+
+    function setupPentestListener() {
+        if (window.wsManager && window.wsManager.socket) {
+            if (window.wsManager.socket.off) {
+                window.wsManager.socket.off('pentest_analysis_started');
+                window.wsManager.socket.off('pentest_analysis_progress');
+                window.wsManager.socket.off('pentest_analysis_complete');
+                window.wsManager.socket.off('pentest_analysis_error');
+            }
+
+            window.wsManager.socket.on('pentest_analysis_started', function(data) {
+                // Dispatch aussi un CustomEvent pour rester cohérent avec websocket.js
+                document.dispatchEvent(new CustomEvent('pentest_analysis:started', { detail: data }));
+                if (typeof data.total === 'number' && data.total === 0) {
+                    pentestProgressContainer.style.display = 'none';
+                    pentestDone = true;
+                    return;
+                }
+
+                if (!pentestProgressContainer.parentNode) {
+                    if (document.getElementById('osint-progress-container')) {
+                        document.getElementById('osint-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(pentestProgressContainer);
+                    } else {
+                        progressContainer.after(pentestProgressContainer);
+                    }
+                }
+
+                pentestProgressContainer.style.display = 'block';
+                pentestDone = false;
+
+                pentestProgressCountBadge.textContent = `${data.current || 0} / ${data.total || 0} entreprises`;
+                pentestCurrentInfo.textContent = 'En cours...';
+                pentestCurrentFill.style.width = '0%';
+                pentestCurrentLabelInner.textContent = '0%';
+                pentestTotalFill.style.width = '0%';
+                pentestTotalLabelInner.textContent = '0%';
+                pentestTotalInfo.textContent = 'En cours...';
+
+                setTimeout(() => {
+                    pentestProgressContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            });
+
+            window.wsManager.socket.on('pentest_analysis_progress', function(data) {
+                document.dispatchEvent(new CustomEvent('pentest_analysis:progress', { detail: data }));
+                if (typeof data.total === 'number' && data.total === 0) {
+                    pentestProgressContainer.style.display = 'none';
+                    return;
+                }
+
+                if (!pentestProgressContainer.parentNode) {
+                    if (document.getElementById('osint-progress-container')) {
+                        document.getElementById('osint-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(pentestProgressContainer);
+                    } else {
+                        progressContainer.after(pentestProgressContainer);
+                    }
+                }
+                pentestProgressContainer.style.display = 'block';
+
+                const totalProgress = typeof data.progress === 'number' ? data.progress : null;
+                const taskProgress = typeof data.task_progress === 'number' ? data.task_progress : null;
+
+                if (typeof data.current === 'number' && typeof data.total === 'number' && data.total > 0) {
+                    pentestProgressCountBadge.textContent = `${data.current} / ${data.total} entreprises`;
+                    pentestTotalInfo.textContent = `${data.current} / ${data.total} terminées`;
+                }
+
+                if (taskProgress !== null) {
+                    const currentPercent = Math.min(100, Math.max(0, taskProgress));
+                    pentestCurrentFill.style.width = `${currentPercent}%`;
+                    pentestCurrentLabelInner.textContent = `${Math.round(currentPercent)}%`;
+                }
+
+                if (totalProgress !== null) {
+                    const totalPercent = Math.min(100, Math.max(0, totalProgress));
+                    pentestTotalFill.style.width = `${totalPercent}%`;
+                    pentestTotalLabelInner.textContent = `${Math.round(totalPercent)}%`;
+                }
+
+                const labelText = data.entreprise || data.url || data.message || 'En cours...';
+                pentestCurrentInfo.textContent = labelText.length > 40 ? `${labelText.slice(0, 37)}...` : labelText;
+                
+                // Afficher les totaux cumulés Pentest
+                const cumulativeTotals = data.cumulative_totals || {};
+                const pentestCumulativeContent = document.getElementById('pentest-cumulative-content');
+                const pentestCumulativeBox = document.getElementById('pentest-cumulative-box');
+                
+                if (pentestCumulativeContent && pentestCumulativeBox && cumulativeTotals) {
+                    const badges = [];
+                    
+                    if (cumulativeTotals.vulnerabilities > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.vulnerabilities} vulnérabilités</span>`);
+                    }
+                    if (cumulativeTotals.forms_tested > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.forms_tested} formulaires</span>`);
+                    }
+                    if (cumulativeTotals.sql_injections > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.sql_injections} SQL</span>`);
+                    }
+                    if (cumulativeTotals.xss_vulnerabilities > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">${cumulativeTotals.xss_vulnerabilities} XSS</span>`);
+                    }
+                    if (cumulativeTotals.risk_score > 0) {
+                        badges.push(`<span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin: 0.15rem 0.25rem 0.15rem 0;">Score: ${cumulativeTotals.risk_score}</span>`);
+                    }
+                    
+                    if (badges.length > 0) {
+                        pentestCumulativeContent.innerHTML = badges.join('');
+                        pentestCumulativeBox.style.display = 'block';
+                    } else {
+                        pentestCumulativeContent.innerHTML = '<span style="color: #6b7280; font-size: 0.9rem; font-style: italic;">Aucune donnée collectée pour le moment</span>';
+                        pentestCumulativeBox.style.display = 'block';
+                    }
+                } else if (pentestCumulativeBox) {
+                    pentestCumulativeBox.style.display = 'none';
+                }
+            });
+
+            window.wsManager.socket.on('pentest_analysis_complete', function(data) {
+                document.dispatchEvent(new CustomEvent('pentest_analysis:complete', { detail: data }));
+                if (!pentestProgressContainer.parentNode) {
+                    if (document.getElementById('osint-progress-container')) {
+                        document.getElementById('osint-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('technical-progress-container')) {
+                        document.getElementById('technical-progress-container').after(pentestProgressContainer);
+                    } else if (document.getElementById('scraping-progress-container')) {
+                        document.getElementById('scraping-progress-container').after(pentestProgressContainer);
+                    } else {
+                        progressContainer.after(pentestProgressContainer);
+                    }
+                }
+                pentestProgressContainer.style.display = 'block';
+
+                pentestCurrentFill.style.width = '100%';
+                pentestCurrentLabelInner.textContent = '100%';
+                pentestTotalFill.style.width = '100%';
+                pentestTotalLabelInner.textContent = '100%';
+
+                const current = typeof data.current === 'number' ? data.current : null;
+                const total = typeof data.total === 'number' ? data.total : null;
+                if (current !== null && total !== null) {
+                    pentestProgressCountBadge.textContent = `${current} / ${total} entreprises`;
+                    pentestTotalInfo.textContent = `${current} / ${total} terminées`;
+                } else {
+                    pentestTotalInfo.textContent = 'Terminé';
+                }
+
+                pentestDone = true;
+                
+                // Toast de notification (réutiliser les variables déjà déclarées)
+                if (current !== null && total !== null && current >= total) {
+                    showToast(`<i class="fas fa-check"></i> Analyse Pentest terminée pour ${total} entreprise(s)`, 'success');
+                } else {
+                    showToast('<i class="fas fa-check"></i> Analyse Pentest terminée', 'success');
+                }
+                
+                maybeRedirectAfterAllDone();
+            });
+
+            window.wsManager.socket.on('pentest_analysis_error', function(data) {
+                document.dispatchEvent(new CustomEvent('pentest_analysis:error', { detail: data }));
+                pentestCurrentFill.style.background = '#e74c3c';
+                pentestCurrentFill.style.width = '100%';
+                pentestCurrentLabelInner.textContent = 'Erreur';
+                pentestCurrentInfo.textContent = data.error || 'Erreur lors de l analyse Pentest';
+            });
+        }
+    }
     
     // Configurer l'écoute au chargement et après connexion WebSocket
     setupScrapingListener();
     setupTechnicalListener();
     setupOSINTListener();
+    setupPentestListener();
     document.addEventListener('websocket:connected', function() {
         setupScrapingListener();
         setupTechnicalListener();
         setupOSINTListener();
+        setupPentestListener();
     });
     
     // Suivi pour la redirection automatique une fois tout terminé
@@ -1043,10 +1399,11 @@
     let scrapingDone = false;
     let technicalDone = false;
     let osintDone = false;
+    let pentestDone = true; // Passer à false dès qu'une analyse Pentest démarre
     let lastScrapingResult = null;
     
     function maybeRedirectAfterAllDone() {
-        if (!scrapingDone || !technicalDone || !osintDone) {
+        if (!scrapingDone || !technicalDone || !osintDone || !pentestDone) {
             return;
         }
         // Utiliser l'analysis_id du scraping si disponible pour cibler la liste des entreprises

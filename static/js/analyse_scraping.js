@@ -336,7 +336,7 @@
                 contactInfo += `<div class="contact-item"><span class="contact-icon">📞</span><a href="tel:${escapeHtml(person.phone)}">${escapeHtml(person.phone)}</a></div>`;
             }
             if (person.linkedin_url) {
-                contactInfo += `<div class="contact-item"><span class="contact-icon">💼</span><a href="${escapeHtml(person.linkedin_url)}" target="_blank">Profil LinkedIn</a></div>`;
+                contactInfo += `<div class="contact-item"><span class="contact-icon"><i class="fab fa-linkedin"></i></span><a href="${escapeHtml(person.linkedin_url)}" target="_blank">Profil LinkedIn</a></div>`;
             }
             contactInfo += '</div>';
         }
@@ -421,17 +421,17 @@
         if (existingSocial) return;
         
         const platformIcons = {
-            'facebook': '📘',
-            'twitter': '🐦',
-            'linkedin': '💼',
-            'instagram': '📷',
-            'youtube': '📺',
-            'github': '💻',
-            'gitlab': '🔧',
-            'medium': '✍️'
+            'facebook': '<i class="fab fa-facebook"></i>',
+            'twitter': '<i class="fab fa-twitter"></i>',
+            'linkedin': '<i class="fab fa-linkedin"></i>',
+            'instagram': '<i class="fab fa-instagram"></i>',
+            'youtube': '<i class="fab fa-youtube"></i>',
+            'github': '<i class="fab fa-github"></i>',
+            'gitlab': '<i class="fab fa-gitlab"></i>',
+            'medium': '<i class="fab fa-medium"></i>'
         };
         
-        const icon = platformIcons[platform.toLowerCase()] || '🔗';
+        const icon = platformIcons[platform.toLowerCase()] || '<i class="fas fa-link"></i>';
         
         const item = document.createElement('div');
         item.className = 'result-item social-item';

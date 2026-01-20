@@ -173,7 +173,7 @@
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- En-tête avec informations générales -->
                 <div class="detail-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin: 0 0 1rem 0; color: white;">📊 Informations générales</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: white;"><i class="fas fa-chart-bar"></i> Informations générales</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; color: white;">
                         <div><strong>📅 Date:</strong> ${date}</div>
                         <div><strong>🌐 URL:</strong> <a href="${analysisData.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${analysisData.url}</a></div>
@@ -273,7 +273,7 @@
                 
                 <!-- Serveur et infrastructure -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🖥️ Serveur et infrastructure</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-server"></i> Serveur et infrastructure</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${analysisData.server_software ? `<div class="info-row"><span class="info-label">Logiciel serveur:</span><span class="info-value"><span class="badge badge-info">${analysisData.server_software}</span></span></div>` : ''}
                         ${analysisData.framework ? `<div class="info-row"><span class="info-label">Framework:</span><span class="info-value"><span class="badge badge-primary">${analysisData.framework}${analysisData.framework_version ? ' ' + analysisData.framework_version : ''}</span></span></div>` : ''}
@@ -295,7 +295,7 @@
                 
                 <!-- Domaine et DNS -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🌍 Domaine et DNS</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-globe-europe"></i> Domaine et DNS</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${analysisData.domain_creation_date ? `<div class="info-row"><span class="info-label">Date de création:</span><span class="info-value">${analysisData.domain_creation_date}</span></div>` : ''}
                         ${analysisData.domain_updated_date ? `<div class="info-row"><span class="info-label">Dernière mise à jour:</span><span class="info-value">${analysisData.domain_updated_date}</span></div>` : ''}
@@ -341,7 +341,7 @@
                 
                 ${analysisData.analytics && Array.isArray(analysisData.analytics) && analysisData.analytics.length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">📈 Outils d'analyse <span class="badge badge-info">${analysisData.analytics.length}</span></h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-chart-line"></i> Outils d'analyse <span class="badge badge-info">${analysisData.analytics.length}</span></h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                         ${analysisData.analytics.map(tool => {
                             let label = '';
@@ -372,7 +372,7 @@
                 
                 ${analysisData.performance_metrics && typeof analysisData.performance_metrics === 'object' && !Array.isArray(analysisData.performance_metrics) && Object.keys(analysisData.performance_metrics).length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">⚡ Métriques de performance</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-bolt"></i> Métriques de performance</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${Object.entries(analysisData.performance_metrics).map(([key, value]) => 
                             `<div class="info-row"><span class="info-label">${escapeHtml(key)}:</span><span class="info-value"><strong>${escapeHtml(String(value || 'N/A'))}</strong></span></div>`
@@ -393,7 +393,7 @@
                 
                 ${analysisData.technical_details ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔧 Détails techniques</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-tools"></i> Détails techniques</h3>
                     <details style="cursor: pointer;">
                         <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir tous les détails</summary>
                         <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${escapeHtml(JSON.stringify(analysisData.technical_details, null, 2))}</pre>

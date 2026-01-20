@@ -21,6 +21,7 @@
     <meta name="msapplication-TileImage" content="{{ url_for('static', filename='favicon/ms-icon-144x144.png') }}">
     <meta name="theme-color" content="#ffffff">
     <title>{% block title %}ProspectLab{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -81,13 +82,13 @@
     </footer>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/websocket.js') }}" defer></script>
     {% block extra_js %}{% endblock %}
     
     <!-- Indicateur de connexion WebSocket -->
     <div id="ws-indicator" style="position: fixed; bottom: 20px; right: 20px; padding: 10px 15px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; z-index: 1000; display: none;">
-        <span id="ws-status">●</span> <span id="ws-text">Connexion...</span>
+        <i id="ws-status" class="fas fa-circle"></i> <span id="ws-text">Connexion...</span>
     </div>
     
     <script>
@@ -98,7 +99,7 @@
         const text = document.getElementById('ws-text');
         indicator.style.display = 'block';
         indicator.style.background = '#27ae60';
-        status.textContent = '●';
+        status.className = 'fas fa-circle';
         text.textContent = 'Connecté';
     });
     
@@ -107,7 +108,7 @@
         const status = document.getElementById('ws-status');
         const text = document.getElementById('ws-text');
         indicator.style.background = '#e74c3c';
-        status.textContent = '●';
+        status.className = 'fas fa-circle';
         text.textContent = 'Déconnecté';
     });
     </script>

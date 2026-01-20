@@ -67,10 +67,10 @@
         <h3 id="results-count">Chargement...</h3>
         <div class="view-options">
             <button id="btn-view-grid" class="view-btn active" title="Vue grille">
-                <span>⊞</span>
+                <i class="fas fa-th"></i>
             </button>
             <button id="btn-view-list" class="view-btn" title="Vue liste">
-                <span>☰</span>
+                <i class="fas fa-bars"></i>
             </button>
         </div>
     </div>
@@ -87,7 +87,7 @@
     <div class="modal-content modal-large">
         <div class="modal-header">
             <h2 id="modal-entreprise-nom">Chargement...</h2>
-            <button class="modal-close" id="modal-close-btn">&times;</button>
+            <button class="modal-close" id="modal-close-btn"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body" id="modal-entreprise-body">
             <div class="loading">Chargement des détails...</div>
@@ -97,6 +97,19 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/entreprises.js') }}"></script>
+<!-- Modules utilitaires (chargement synchrone pour dépendances) -->
+<script src="{{ url_for('static', filename='js/modules/utils/formatters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/utils/badges.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/utils/notifications.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/utils/debounce.js') }}"></script>
+<!-- Module API -->
+<script src="{{ url_for('static', filename='js/modules/entreprises/api.js') }}"></script>
+<!-- Modules d'affichage des analyses -->
+<script src="{{ url_for('static', filename='js/modules/analyses/technical.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/analyses/osint.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/analyses/pentest.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/analyses/scraping.js') }}"></script>
+<!-- Script principal (chargement différé) -->
+<script src="{{ url_for('static', filename='js/entreprises.refactored.js') }}" defer></script>
 {% endblock %}
 

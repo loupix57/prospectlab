@@ -1,6 +1,11 @@
 /**
  * JavaScript pour la page de liste des entreprises
  * Gestion des filtres, recherche, tags et notes
+ * 
+ * ⚠️ FICHIER OBSOLÈTE ⚠️
+ * Ce fichier a été remplacé par entreprises.refactored.js qui utilise une architecture modulaire.
+ * Ce fichier est conservé à titre de référence/backup uniquement.
+ * Ne pas utiliser dans de nouveaux développements.
  */
 
 (function() {
@@ -141,16 +146,15 @@
                     <div class="card-header">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
                             <h3>${entreprise.nom || 'Sans nom'}</h3>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                ${typeof entreprise.score_pentest !== 'undefined' && entreprise.score_pentest !== null && entreprise.score_pentest >= 40 ? `
+                                <i class="fas fa-exclamation-triangle" style="color: ${entreprise.score_pentest >= 70 ? '#e74c3c' : '#f39c12'}; font-size: 1.2rem;" title="Score Pentest: ${entreprise.score_pentest}/100"></i>
+                                ` : ''}
                             <button class="btn-favori ${entreprise.favori ? 'active' : ''}" data-id="${entreprise.id}" title="Favori">
-                                ⭐
+                                    <i class="fas fa-star"></i>
                             </button>
                         </div>
-                        ${typeof entreprise.score_securite !== 'undefined' && entreprise.score_securite !== null ? `
-                        <div style="margin-top:0.35rem;">
-                            <span style="font-size:0.8rem; color:#6b7280; margin-right:0.35rem;">Sécurité:</span>
-                            ${getSecurityScoreBadge(entreprise.score_securite)}
                         </div>
-                        ` : ''}
                     </div>
                 </div>
                 <div class="card-body">
@@ -158,6 +162,21 @@
                     ${entreprise.website ? `<p><strong>Site:</strong> <a href="${entreprise.website}" target="_blank">${entreprise.website}</a></p>` : ''}
                     ${entreprise.secteur ? `<p><strong>Secteur:</strong> ${entreprise.secteur}</p>` : ''}
                     ${entreprise.statut ? `<p><strong>Statut:</strong> <span class="badge badge-${getStatusClass(entreprise.statut)}">${entreprise.statut}</span></p>` : ''}
+                    ${(typeof entreprise.score_securite !== 'undefined' && entreprise.score_securite !== null) || (typeof entreprise.score_pentest !== 'undefined' && entreprise.score_pentest !== null) ? `
+                    <div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid #e5e7eb;">
+                        ${typeof entreprise.score_securite !== 'undefined' && entreprise.score_securite !== null ? `
+                        <p style="margin:0.25rem 0;">
+                            <strong>Sécurité:</strong> ${getSecurityScoreBadge(entreprise.score_securite)}
+                        </p>
+                        ` : ''}
+                        ${typeof entreprise.score_pentest !== 'undefined' && entreprise.score_pentest !== null ? `
+                        <p style="margin:0.25rem 0;">
+                            <strong>Pentest:</strong> 
+                            <span class="badge badge-${entreprise.score_pentest >= 70 ? 'danger' : entreprise.score_pentest >= 40 ? 'warning' : 'success'}">${entreprise.score_pentest}/100</span>
+                        </p>
+                        ` : ''}
+                    </div>
+                    ` : ''}
                     ${entreprise.email_principal ? `<p><strong>Email:</strong> ${entreprise.email_principal}</p>` : ''}
                     ${entreprise.responsable ? `<p><strong>Responsable:</strong> ${entreprise.responsable}</p>` : ''}
                     ${tagsHtml ? `<div class="tags-container">${tagsHtml}</div>` : ''}
@@ -165,7 +184,7 @@
                 <div class="card-footer">
                     <button class="btn btn-small btn-primary btn-view-details" data-id="${entreprise.id}">Voir détails</button>
                     <button class="btn btn-small btn-secondary btn-edit-tags" data-id="${entreprise.id}">Tags</button>
-                    <button class="btn btn-small btn-danger btn-delete-entreprise" data-id="${entreprise.id}" data-name="${entreprise.nom || 'Sans nom'}" title="Supprimer">🗑️</button>
+                    <button class="btn btn-small btn-danger btn-delete-entreprise" data-id="${entreprise.id}" data-name="${entreprise.nom || 'Sans nom'}" title="Supprimer"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `;
@@ -180,21 +199,31 @@
             <div class="entreprise-row" data-id="${entreprise.id}">
                 <div class="row-main">
                     <div class="row-name">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
                         <h3>${entreprise.nom || 'Sans nom'}</h3>
+                            ${typeof entreprise.score_pentest !== 'undefined' && entreprise.score_pentest !== null && entreprise.score_pentest >= 40 ? `
+                            <i class="fas fa-exclamation-triangle" style="color: ${entreprise.score_pentest >= 70 ? '#e74c3c' : '#f39c12'}; font-size: 1.1rem;" title="Score Pentest: ${entreprise.score_pentest}/100"></i>
+                            ` : ''}
+                        </div>
                         ${tagsHtml ? `<div class="tags-container">${tagsHtml}</div>` : ''}
                     </div>
                     <div class="row-info">
                         ${entreprise.secteur ? `<span>${entreprise.secteur}</span>` : ''}
                         ${entreprise.statut ? `<span class="badge badge-${getStatusClass(entreprise.statut)}">${entreprise.statut}</span>` : ''}
                         ${typeof entreprise.score_securite !== 'undefined' && entreprise.score_securite !== null ? `<span>${getSecurityScoreBadge(entreprise.score_securite)}</span>` : ''}
+                        ${typeof entreprise.score_pentest !== 'undefined' && entreprise.score_pentest !== null ? `
+                        <span>
+                            <span class="badge badge-${entreprise.score_pentest >= 70 ? 'danger' : entreprise.score_pentest >= 40 ? 'warning' : 'success'}">Pentest: ${entreprise.score_pentest}/100</span>
+                        </span>
+                        ` : ''}
                         ${entreprise.email_principal ? `<span>${entreprise.email_principal}</span>` : ''}
                     </div>
                 </div>
                 <div class="row-actions">
-                    <button class="btn-favori ${entreprise.favori ? 'active' : ''}" data-id="${entreprise.id}" title="Favori">⭐</button>
+                    <button class="btn-favori ${entreprise.favori ? 'active' : ''}" data-id="${entreprise.id}" title="Favori"><i class="fas fa-star"></i></button>
                     <button class="btn btn-small btn-secondary btn-edit-tags" data-id="${entreprise.id}">Tags</button>
                     <button class="btn btn-small btn-primary btn-view-details" data-id="${entreprise.id}">Détails</button>
-                    <button class="btn btn-small btn-danger btn-delete-entreprise" data-id="${entreprise.id}" data-name="${entreprise.nom || 'Sans nom'}" title="Supprimer">🗑️</button>
+                    <button class="btn btn-small btn-danger btn-delete-entreprise" data-id="${entreprise.id}" data-name="${entreprise.nom || 'Sans nom'}" title="Supprimer"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         `;
@@ -506,6 +535,7 @@
     // Modale de détails d'entreprise
     let currentModalEntrepriseId = null;
     let currentModalEntrepriseData = null;
+    let currentModalPentestScore = null;
     
     async function openEntrepriseModal(entrepriseId) {
         currentModalEntrepriseId = entrepriseId;
@@ -529,6 +559,7 @@
             }
             
             currentModalEntrepriseData = await response.json();
+            currentModalPentestScore = null; // Réinitialiser le score pentest
             modalTitle.textContent = currentModalEntrepriseData.nom || 'Sans nom';
             modalBody.innerHTML = createModalContent(currentModalEntrepriseData);
             
@@ -573,7 +604,6 @@
                     <button class="tab-btn" data-tab="technique">Analyse technique</button>
                     <button class="tab-btn" data-tab="osint">Analyse OSINT</button>
                     <button class="tab-btn" data-tab="pentest">Analyse Pentest</button>
-                    <button class="tab-btn" data-tab="notes">Note</button>
                 </div>
                 
                 <div class="tabs-content">
@@ -609,7 +639,7 @@
                         ` : ''}
                         ${entreprise.resume ? `
                         <div class="detail-section" style="margin-bottom: 1.5rem; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #667eea;">
-                            <h3 style="margin: 0 0 0.75rem 0; color: #2c3e50; font-size: 1.1rem;">📝 Résumé de l'entreprise</h3>
+                            <h3 style="margin: 0 0 0.75rem 0; color: #2c3e50; font-size: 1.1rem;"><i class="fas fa-file-alt"></i> Résumé de l'entreprise</h3>
                             <p style="margin: 0; color: #555; line-height: 1.6; font-size: 0.95rem;">${entreprise.resume}</p>
                         </div>
                         ` : ''}
@@ -618,6 +648,16 @@
                             ${createInfoRow('Site web', entreprise.website, true)}
                             ${createInfoRow('Secteur', entreprise.secteur)}
                             ${createInfoRow('Statut', entreprise.statut, false, getStatusBadge(entreprise.statut))}
+                            ${typeof entreprise.score_securite !== 'undefined' && entreprise.score_securite !== null ? `
+                            <div class="info-row">
+                                <span class="info-label">Score sécurité:</span>
+                                <span class="info-value">${getSecurityScoreBadge(entreprise.score_securite)}</span>
+                            </div>
+                            ` : ''}
+                            <div class="info-row" id="pentest-score-row" style="display: none;">
+                                <span class="info-label">Score Pentest:</span>
+                                <span class="info-value" id="pentest-score-value"></span>
+                            </div>
                             ${createInfoRow('Opportunité', entreprise.opportunite)}
                             ${createInfoRow('Taille estimée', entreprise.taille_estimee)}
                             ${createInfoRow('Adresse 1', entreprise.address_1)}
@@ -631,14 +671,13 @@
                             ${createInfoRow('Nombre d\'avis', entreprise.nb_avis_google)}
                         </div>
                         
-                        ${entreprise.hosting_provider || entreprise.framework || typeof entreprise.score_securite !== 'undefined' ? `
+                        ${entreprise.hosting_provider || entreprise.framework ? `
                         <div class="tech-info-section">
                             <h3>Informations techniques</h3>
                             <div class="info-grid">
                                 ${createInfoRow('Hébergeur', entreprise.hosting_provider)}
                                 ${createInfoRow('Framework', entreprise.framework)}
                                 ${createInfoRow('CMS', entreprise.cms)}
-                                ${createInfoRow('Score sécurité', entreprise.score_securite, false, getSecurityScoreBadge(entreprise.score_securite, 'security-score-badge'))}
                             </div>
                         </div>
                         ` : ''}
@@ -728,12 +767,12 @@
                                                             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 1rem; flex-wrap: wrap;">
                                                                 ${ogData.videos && ogData.videos.length > 0 ? `
                                                                 <span style="font-size: 0.85rem; color: #718096;">
-                                                                    🎥 ${ogData.videos.length} vidéo(s)
+                                                                    <i class="fas fa-video"></i> ${ogData.videos.length} vidéo(s)
                                                                 </span>
                                                                 ` : ''}
                                                                 ${ogData.audios && ogData.audios.length > 0 ? `
                                                                 <span style="font-size: 0.85rem; color: #718096;">
-                                                                    🎵 ${ogData.audios.length} audio(s)
+                                                                    <i class="fas fa-music"></i> ${ogData.audios.length} audio(s)
                                                                 </span>
                                                                 ` : ''}
                                                             </div>
@@ -755,22 +794,6 @@
                     
                     <!-- Onglet Résultats scraping -->
                     <div class="tab-panel" id="tab-scraping">
-                        <div class="scraping-actions" style="margin-bottom: 1.5rem;">
-                            <div class="scraping-buttons" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; background: #f8fafc; padding: 0.75rem; border-radius: 10px; border: 1px solid #e5e7eb;">
-                                ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-scraping" data-id="${entreprise.id}" data-url="${entreprise.website}" style="min-width: 220px; display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    🔍 Relancer l'analyse scraping
-                                </button>
-                                ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
-                                <div id="scraping-progress" class="scraping-progress" style="flex:1; min-width:220px; display: none; align-items:center; gap:0.5rem;">
-                                    <div class="progress-bar-container" style="flex:1; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
-                                        <div id="scraping-progress-bar" class="progress-bar" style="height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); width: 0%; transition: width 0.25s;"></div>
-                                    </div>
-                                    <span id="scraping-progress-text" style="font-size: 0.9rem; color: #4b5563;">En attente</span>
-                                </div>
-                            </div>
-                            <div id="scraping-status" class="scraping-status" style="margin-top: 0.75rem; display: none;"></div>
-                        </div>
                         
                         <div id="scraping-results" class="scraping-results" style="display: block;">
                             <h3>Résultats de l'analyse</h3>
@@ -812,113 +835,32 @@
                     
                     <!-- Onglet Analyse technique -->
                     <div class="tab-panel" id="tab-technique">
-                        <div class="analysis-actions" style="margin-bottom: 1.5rem;">
-                            <div class="analysis-buttons" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; background: #f8fafc; padding: 0.75rem; border-radius: 10px; border: 1px solid #e5e7eb;">
-                                ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-technique" data-id="${entreprise.id}" data-url="${entreprise.website}" style="min-width: 240px; display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    🚀 Relancer l'analyse technique
-                                </button>
-                                ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
-                                <div id="technique-progress" class="analysis-progress" style="flex:1; min-width:240px; display: none; align-items:center; gap:0.5rem;">
-                                    <div class="progress-bar-container" style="flex:1; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
-                                        <div id="technique-progress-bar" class="progress-bar" style="height: 100%; background: linear-gradient(90deg, #667eea, #38bdf8); width: 0%; transition: width 0.25s;"></div>
-                                    </div>
-                                    <span id="technique-progress-text" style="font-size: 0.9rem; color: #4b5563;">En attente</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="technique-results" class="analysis-results" style="margin-top: 2rem;">
-                            <h3>Résultats de l'analyse technique</h3>
-                            <div id="technique-results-content">Aucune analyse disponible</div>
+                        <div id="technique-results" class="analysis-results">
+                            <div id="technique-results-content">Chargement de l'analyse technique...</div>
                         </div>
                     </div>
                     
                     <!-- Onglet Analyse OSINT -->
                     <div class="tab-panel" id="tab-osint">
-                        <div class="analysis-actions">
-                            <h3>Analyse OSINT</h3>
-                            <p style="color: #666; margin-bottom: 1rem;">Collecte d'informations publiques : sous-domaines, DNS, WHOIS, emails, réseaux sociaux, technologies</p>
-                            <div class="analysis-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
-                                ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-osint" data-id="${entreprise.id}" data-url="${entreprise.website}">
-                                    🔎 Lancer l'analyse OSINT
-                                </button>
-                                <button class="btn btn-danger btn-stop-osint" data-id="${entreprise.id}" style="display: none;">
-                                    ⏹️ Arrêter
-                                </button>
-                                ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
-                            </div>
-                            
-                            <div id="osint-progress" class="analysis-progress" style="margin-top: 1rem; display: none;">
-                                <div class="progress-bar-container" style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                    <div id="osint-progress-bar" class="progress-bar" style="height: 100%; background: #3498db; width: 0%; transition: width 0.3s;"></div>
-                                </div>
-                                <p id="osint-progress-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></p>
-                            </div>
-                            
-                        </div>
-                        
-                        <div id="osint-results" class="analysis-results" style="margin-top: 2rem;">
-                            <h3>Résultats de l'analyse OSINT</h3>
-                            <div id="osint-results-content">Aucune analyse disponible</div>
+                        <div id="osint-results" class="analysis-results">
+                            <div id="osint-results-content">Chargement de l'analyse OSINT...</div>
                         </div>
                     </div>
                     
                     <!-- Onglet Analyse Pentest -->
                     <div class="tab-panel" id="tab-pentest">
-                        <div class="analysis-actions">
-                            <h3>Analyse Pentest</h3>
-                            <p style="color: #666; margin-bottom: 1rem;">Test de pénétration et analyse de sécurité : vulnérabilités, injection SQL, XSS, authentification, autorisation</p>
-                            <div class="analysis-buttons" style="display: flex; gap: 0.5rem; align-items: center;">
-                                ${entreprise.website ? `
-                                <button class="btn btn-primary btn-launch-pentest" data-id="${entreprise.id}" data-url="${entreprise.website}">
-                                    🛡️ Lancer l'analyse Pentest
-                                </button>
-                                <button class="btn btn-danger btn-stop-pentest" data-id="${entreprise.id}" style="display: none;">
-                                    ⏹️ Arrêter
-                                </button>
-                                ` : '<p class="warning-box">Aucun site web disponible pour lancer une analyse</p>'}
+                        <div id="pentest-results" class="analysis-results">
+                            <div id="pentest-results-content">Chargement de l'analyse Pentest...</div>
+                            </div>
                             </div>
                             
-                            <div id="pentest-progress" class="analysis-progress" style="margin-top: 1rem; display: none;">
-                                <div class="progress-bar-container" style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                    <div id="pentest-progress-bar" class="progress-bar" style="height: 100%; background: #3498db; width: 0%; transition: width 0.3s;"></div>
-                                </div>
-                                <p id="pentest-progress-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></p>
-                            </div>
-                            
-                        </div>
-                        
-                        <div id="pentest-results" class="analysis-results" style="margin-top: 2rem;">
-                            <h3>Résultats de l'analyse Pentest</h3>
-                            <div id="pentest-results-content">Aucune analyse disponible</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Onglet Notes & Tags -->
-                    <div class="tab-panel" id="tab-notes">
-                        <div class="notes-section">
-                            <h3>Notes</h3>
-                            <textarea id="modal-notes-textarea" class="notes-textarea" placeholder="Ajoutez vos notes sur cette entreprise...">${notes}</textarea>
-                            <button id="modal-btn-save-notes" class="btn btn-primary">Enregistrer les notes</button>
-                        </div>
-                        
-                        <div class="tags-section" style="margin-top: 2rem;">
-                            <h3>Tags</h3>
-                            <div id="modal-tags-container" class="tags-editable">
-                                ${tags.map(tag => `<span class="tag editable" data-tag="${tag}">${tag} <button class="tag-remove">×</button></span>`).join('')}
-                                <input type="text" id="modal-tag-input" placeholder="Ajouter un tag (Entrée pour valider)" class="tag-input">
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="modal-close-footer-btn">Fermer</button>
                 <button class="btn btn-outline ${entreprise.favori ? 'active' : ''}" id="modal-toggle-favori">
-                    ${entreprise.favori ? '⭐ Favori' : '☆ Ajouter aux favoris'}
+                    ${entreprise.favori ? '<i class="fas fa-star"></i> Favori' : '<i class="far fa-star"></i> Ajouter aux favoris'}
                 </button>
             </div>
         `;
@@ -1023,6 +965,7 @@
             modal.style.display = 'none';
             currentModalEntrepriseId = null;
             currentModalEntrepriseData = null;
+            currentModalPentestScore = null;
         }
     }
     
@@ -1093,33 +1036,6 @@
             });
         }
         
-        // Tags
-        const tagInput = document.getElementById('modal-tag-input');
-        if (tagInput) {
-            tagInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addModalTag(tagInput.value.trim());
-                    tagInput.value = '';
-                }
-            });
-        }
-        
-        // Suppression de tags
-        document.querySelectorAll('#modal-tags-container .tag-remove').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const tag = e.target.closest('.tag').dataset.tag;
-                removeModalTag(tag);
-            });
-        });
-        
-        // Notes
-        const notesBtn = document.getElementById('modal-btn-save-notes');
-        if (notesBtn) {
-            notesBtn.addEventListener('click', () => {
-                saveModalNotes();
-            });
-        }
         
         // Lancement du scraping (délégation d'événements pour les éléments créés dynamiquement)
         const modalBody = document.getElementById('modal-entreprise-body');
@@ -1188,47 +1104,6 @@
             });
         }
         
-        // Gestion des boutons d'analyse
-        if (modalBody) {
-            modalBody.addEventListener('click', async (e) => {
-                if (e.target.closest('.btn-launch-technique')) {
-                    const btn = e.target.closest('.btn-launch-technique');
-                    const entrepriseId = btn.getAttribute('data-id');
-                    const url = btn.getAttribute('data-url');
-                    await launchTechnicalAnalysis(entrepriseId, url);
-                }
-                if (e.target.closest('.btn-stop-technique')) {
-                    if (window.wsManager && window.wsManager.socket) {
-                        window.wsManager.socket.emit('stop_technical_analysis', {
-                            url: currentModalEntrepriseData?.website,
-                            entreprise_id: currentModalEntrepriseId
-                        });
-                    }
-                }
-                if (e.target.closest('.btn-launch-osint')) {
-                    const btn = e.target.closest('.btn-launch-osint');
-                    const entrepriseId = btn.getAttribute('data-id');
-                    const url = btn.getAttribute('data-url');
-                    await launchOSINTAnalysis(entrepriseId, url);
-                }
-                if (e.target.closest('.btn-stop-osint')) {
-                    if (window.wsManager && window.wsManager.socket) {
-                        window.wsManager.socket.emit('stop_osint_analysis', { url: currentModalEntrepriseData?.website });
-                    }
-                }
-                if (e.target.closest('.btn-launch-pentest')) {
-                    const btn = e.target.closest('.btn-launch-pentest');
-                    const entrepriseId = btn.getAttribute('data-id');
-                    const url = btn.getAttribute('data-url');
-                    await launchPentestAnalysis(entrepriseId, url);
-                }
-                if (e.target.closest('.btn-stop-pentest')) {
-                    if (window.wsManager && window.wsManager.socket) {
-                        window.wsManager.socket.emit('stop_pentest_analysis', { url: currentModalEntrepriseData?.website });
-                    }
-                }
-            });
-        }
     }
     
     async function loadTechnicalAnalysis(entrepriseId) {
@@ -1243,7 +1118,7 @@
                 const analysis = await response.json();
                 displayTechnicalAnalysis(analysis);
             } else if (response.status === 404) {
-                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse technique disponible. Lancez une analyse pour commencer.</p>';
+                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse technique disponible pour le moment.</p>';
             } else {
                 resultsContent.innerHTML = '<p class="error">Erreur lors du chargement de l\'analyse technique</p>';
             }
@@ -1265,7 +1140,7 @@
                 const analysis = await response.json();
                 displayOSINTAnalysis(analysis);
             } else if (response.status === 404) {
-                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse OSINT disponible. Lancez une analyse pour commencer.</p>';
+                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse OSINT disponible pour le moment.</p>';
             } else {
                 resultsContent.innerHTML = '<p class="error">Erreur lors du chargement de l\'analyse OSINT</p>';
             }
@@ -1285,14 +1160,36 @@
             const response = await fetch(`/api/entreprise/${entrepriseId}/analyse-pentest`);
             if (response.ok) {
                 const analysis = await response.json();
+                // Stocker le score pentest pour l'afficher dans l'en-tête
+                currentModalPentestScore = analysis.risk_score || null;
                 displayPentestAnalysis(analysis);
+                
+                // Mettre à jour l'affichage du score dans l'en-tête si présent
+                if (currentModalPentestScore !== null) {
+                    const pentestRow = document.getElementById('pentest-score-row');
+                    const pentestValue = document.getElementById('pentest-score-value');
+                    if (pentestRow && pentestValue) {
+                        const icon = currentModalPentestScore >= 70 ? '<i class="fas fa-exclamation-circle"></i> ' : currentModalPentestScore >= 40 ? '<i class="fas fa-exclamation-triangle"></i> ' : '';
+                        const badgeClass = currentModalPentestScore >= 70 ? 'danger' : currentModalPentestScore >= 40 ? 'warning' : 'success';
+                        pentestValue.innerHTML = `${icon}<span class="badge badge-${badgeClass}">${currentModalPentestScore}/100</span>`;
+                        pentestRow.style.display = '';
+                    }
+                } else {
+                    const pentestRow = document.getElementById('pentest-score-row');
+                    if (pentestRow) {
+                        pentestRow.style.display = 'none';
+                    }
+                }
             } else if (response.status === 404) {
-                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse Pentest disponible. Lancez une analyse pour commencer.</p>';
+                currentModalPentestScore = null;
+                resultsContent.innerHTML = '<p class="empty-state">Aucune analyse Pentest disponible pour le moment.</p>';
             } else {
+                currentModalPentestScore = null;
                 resultsContent.innerHTML = '<p class="error">Erreur lors du chargement de l\'analyse Pentest</p>';
             }
         } catch (error) {
             console.error('Erreur lors du chargement de l\'analyse Pentest:', error);
+            currentModalPentestScore = null;
             resultsContent.innerHTML = '<p class="error">Erreur lors du chargement de l\'analyse Pentest</p>';
         }
     }
@@ -1312,7 +1209,7 @@
                 if (favoriBtn) {
                     if (data.favori) {
                         favoriBtn.classList.add('active');
-                        favoriBtn.textContent = '⭐ Favori';
+                        favoriBtn.innerHTML = '<i class="fas fa-star"></i> Favori';
                     } else {
                         favoriBtn.classList.remove('active');
                         favoriBtn.textContent = '☆ Ajouter aux favoris';
@@ -1367,7 +1264,7 @@
                 const tagsContainer = document.getElementById('modal-tags-container');
                 if (tagsContainer) {
                     tagsContainer.innerHTML = tags.map(tag => 
-                        `<span class="tag editable" data-tag="${tag}">${tag} <button class="tag-remove">×</button></span>`
+                        `<span class="tag editable" data-tag="${tag}">${tag} <button class="tag-remove"><i class="fas fa-times"></i></button></span>`
                     ).join('') + '<input type="text" id="modal-tag-input" placeholder="Ajouter un tag (Entrée pour valider)" class="tag-input">';
                     
                     // Re-setup les event listeners
@@ -1424,7 +1321,7 @@
                 const btn = document.getElementById('modal-btn-save-notes');
                 if (btn) {
                     const originalText = btn.textContent;
-                    btn.textContent = '✓ Enregistré !';
+                    btn.innerHTML = '<i class="fas fa-check"></i> Enregistré !';
                     btn.classList.add('success');
                     setTimeout(() => {
                         btn.textContent = originalText;
@@ -1742,7 +1639,7 @@
         // Emails
         html += `
             <div class="scraping-result-card">
-                <h4>📧 Emails (${scrapingResultsData.emails.length})</h4>
+                <h4><i class="fas fa-envelope"></i> Emails (${scrapingResultsData.emails.length})</h4>
                 <div class="scraping-result-list">
                     ${scrapingResultsData.emails.length > 0 ? 
                         scrapingResultsData.emails.map(email => `<div class="scraping-result-item">${email}</div>`).join('') :
@@ -1774,7 +1671,7 @@
         // Téléphones
         html += `
             <div class="scraping-result-card">
-                <h4>📞 Téléphones (${scrapingResultsData.phones.length})</h4>
+                <h4><i class="fas fa-phone"></i> Téléphones (${scrapingResultsData.phones.length})</h4>
                 <div class="scraping-result-list">
                     ${scrapingResultsData.phones.length > 0 ? 
                         scrapingResultsData.phones.map(phone => `<div class="scraping-result-item">${phone}</div>`).join('') :
@@ -1788,7 +1685,7 @@
         const socialCount = Object.keys(scrapingResultsData.social).length;
         html += `
             <div class="scraping-result-card">
-                <h4>🔗 Réseaux sociaux (${socialCount})</h4>
+                <h4><i class="fas fa-link"></i> Réseaux sociaux (${socialCount})</h4>
                 <div class="scraping-result-list">
                     ${socialCount > 0 ? 
                         Object.entries(scrapingResultsData.social).map(([platform, links]) => `
@@ -1874,7 +1771,7 @@
                     const categoryDiv = document.createElement('div');
                     categoryDiv.className = 'result-item tech-item';
                     categoryDiv.innerHTML = `
-                        <div class="result-item-icon">⚙️</div>
+                        <div class="result-item-icon"><i class="fas fa-cog"></i></div>
                         <div class="result-item-content">
                             <div class="result-item-header">
                                 <strong class="result-item-title">${escapeHtml(category.charAt(0).toUpperCase() + category.slice(1))}</strong>
@@ -1951,7 +1848,7 @@
         const item = document.createElement('div');
         item.className = 'result-item email-item';
         item.innerHTML = `
-            <div class="result-item-icon">📧</div>
+            <div class="result-item-icon"><i class="fas fa-envelope"></i></div>
             <div class="result-item-content">
                 <div class="result-item-header">
                     <strong class="result-item-title">${escapeHtml(emailStr)}</strong>
@@ -1993,13 +1890,13 @@
         if (person.email || person.phone || person.linkedin_url) {
             contactInfo = '<div class="result-item-contacts">';
             if (person.email) {
-                contactInfo += `<div class="contact-item"><span class="contact-icon">📧</span><a href="mailto:${escapeHtml(person.email)}">${escapeHtml(person.email)}</a></div>`;
+                contactInfo += `<div class="contact-item"><span class="contact-icon"><i class="fas fa-envelope"></i></span><a href="mailto:${escapeHtml(person.email)}">${escapeHtml(person.email)}</a></div>`;
             }
             if (person.phone) {
-                contactInfo += `<div class="contact-item"><span class="contact-icon">📞</span><a href="tel:${escapeHtml(person.phone)}">${escapeHtml(person.phone)}</a></div>`;
+                contactInfo += `<div class="contact-item"><span class="contact-icon"><i class="fas fa-phone"></i></span><a href="tel:${escapeHtml(person.phone)}">${escapeHtml(person.phone)}</a></div>`;
             }
             if (person.linkedin_url) {
-                contactInfo += `<div class="contact-item"><span class="contact-icon">💼</span><a href="${escapeHtml(person.linkedin_url)}" target="_blank">Profil LinkedIn</a></div>`;
+                contactInfo += `<div class="contact-item"><span class="contact-icon"><i class="fab fa-linkedin"></i></span><a href="${escapeHtml(person.linkedin_url)}" target="_blank">Profil LinkedIn</a></div>`;
             }
             contactInfo += '</div>';
         }
@@ -2043,7 +1940,7 @@
         const item = document.createElement('div');
         item.className = 'result-item phone-item';
         item.innerHTML = `
-            <div class="result-item-icon">📞</div>
+            <div class="result-item-icon"><i class="fas fa-phone"></i></div>
             <div class="result-item-content">
                 <div class="result-item-header">
                     <strong class="result-item-title">${escapeHtml(phone)}</strong>
@@ -2078,15 +1975,15 @@
         if (existingSocial) return;
         
         const platformIcons = {
-            'facebook': '📘',
-            'twitter': '🐦',
-            'linkedin': '💼',
-            'instagram': '📷',
-            'youtube': '📺',
-            'github': '💻'
+            'facebook': '<i class="fab fa-facebook"></i>',
+            'twitter': '<i class="fab fa-twitter"></i>',
+            'linkedin': '<i class="fab fa-linkedin"></i>',
+            'instagram': '<i class="fab fa-instagram"></i>',
+            'youtube': '<i class="fab fa-youtube"></i>',
+            'github': '<i class="fab fa-github"></i>'
         };
         
-        const icon = platformIcons[platform.toLowerCase()] || '🔗';
+        const icon = platformIcons[platform.toLowerCase()] || '<i class="fas fa-link"></i>';
         
         const item = document.createElement('div');
         item.className = 'result-item social-item';
@@ -2534,12 +2431,12 @@
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- En-tête avec informations générales -->
                 <div class="detail-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin: 0 0 1rem 0; color: white;">📊 Informations générales</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: white;"><i class="fas fa-chart-bar"></i> Informations générales</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; color: white;">
-                        <div><strong>📅 Date:</strong> ${date}</div>
-                        <div><strong>🌐 URL:</strong> <a href="${analysis.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${analysis.url}</a></div>
-                        <div><strong>🏷️ Domaine:</strong> ${analysis.domain || 'N/A'}</div>
-                        <div><strong>🔢 IP:</strong> ${analysis.ip_address || 'N/A'}</div>
+                        <div><strong><i class="fas fa-calendar"></i> Date:</strong> ${date}</div>
+                        <div><strong><i class="fas fa-globe"></i> URL:</strong> <a href="${analysis.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${analysis.url}</a></div>
+                        <div><strong><i class="fas fa-tag"></i> Domaine:</strong> ${analysis.domain || 'N/A'}</div>
+                        <div><strong><i class="fas fa-hashtag"></i> IP:</strong> ${analysis.ip_address || 'N/A'}</div>
                     </div>
                 </div>
                 
@@ -2602,7 +2499,7 @@
 
                     return `
                         <div class="detail-section" style="padding: 1rem; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px;">
-                            <h3 style="margin: 0 0 0.75rem 0; color: #1f2937;">🛰️ Analyse multi-pages (${pagesCount} page${pagesCount > 1 ? 's' : ''})</h3>
+                            <h3 style="margin: 0 0 0.75rem 0; color: #1f2937;"><i class="fas fa-satellite"></i> Analyse multi-pages (${pagesCount} page${pagesCount > 1 ? 's' : ''})</h3>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
                                 <div><strong>Score sécurité:</strong> ${getSecurityScoreBadge(securityScore)}</div>
                                 <div><strong>Score perf:</strong> ${perfBadge}</div>
@@ -2634,7 +2531,7 @@
                 
                 <!-- Serveur et infrastructure -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🖥️ Serveur et infrastructure</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-server"></i> Serveur et infrastructure</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${analysis.server_software ? `<div class="info-row"><span class="info-label">Logiciel serveur:</span><span class="info-value"><span class="badge badge-info">${analysis.server_software}</span></span></div>` : ''}
                         ${analysis.framework ? `<div class="info-row"><span class="info-label">Framework:</span><span class="info-value"><span class="badge badge-primary">${analysis.framework}${analysis.framework_version ? ' ' + analysis.framework_version : ''}</span></span></div>` : ''}
@@ -2647,7 +2544,7 @@
                 
                 ${analysis.cms_plugins && Array.isArray(analysis.cms_plugins) && analysis.cms_plugins.length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔌 Plugins CMS <span class="badge badge-info">${analysis.cms_plugins.length}</span></h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-plug"></i> Plugins CMS <span class="badge badge-info">${analysis.cms_plugins.length}</span></h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                         ${analysis.cms_plugins.map(plugin => `<span class="badge badge-outline">${plugin}</span>`).join('')}
                     </div>
@@ -2656,7 +2553,7 @@
                 
                 <!-- Domaine et DNS -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🌍 Domaine et DNS</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-globe-europe"></i> Domaine et DNS</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${analysis.domain_creation_date ? `<div class="info-row"><span class="info-label">Date de création:</span><span class="info-value">${analysis.domain_creation_date}</span></div>` : ''}
                         ${analysis.domain_updated_date ? `<div class="info-row"><span class="info-label">Dernière mise à jour:</span><span class="info-value">${analysis.domain_updated_date}</span></div>` : ''}
@@ -2666,12 +2563,12 @@
                 
                 <!-- SSL/TLS -->
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔒 SSL/TLS</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-lock"></i> SSL/TLS</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         <div class="info-row">
                             <span class="info-label">SSL valide:</span>
                             <span class="info-value">
-                                <span class="badge ${analysis.ssl_valid ? 'badge-success' : 'badge-danger'}">${analysis.ssl_valid ? '✓ Oui' : '✗ Non'}</span>
+                                <span class="badge ${analysis.ssl_valid ? 'badge-success' : 'badge-danger'}">${analysis.ssl_valid ? '<i class="fas fa-check"></i> Oui' : '<i class="fas fa-times"></i> Non'}</span>
                             </span>
                         </div>
                         ${analysis.ssl_expiry_date ? `<div class="info-row"><span class="info-label">Date d'expiration:</span><span class="info-value">${analysis.ssl_expiry_date}</span></div>` : ''}
@@ -2680,7 +2577,7 @@
                 
                 ${analysis.security_headers && typeof analysis.security_headers === 'object' && !Array.isArray(analysis.security_headers) && Object.keys(analysis.security_headers).length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🛡️ En-têtes de sécurité</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-shield-alt"></i> En-têtes de sécurité</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
                         ${Object.entries(analysis.security_headers).map(([key, value]) => {
                             let display = '';
@@ -2702,7 +2599,7 @@
                 
                 ${analysis.analytics && Array.isArray(analysis.analytics) && analysis.analytics.length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">📈 Outils d'analyse <span class="badge badge-info">${analysis.analytics.length}</span></h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-chart-line"></i> Outils d'analyse <span class="badge badge-info">${analysis.analytics.length}</span></h3>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                         ${analysis.analytics.map(tool => {
                             let label = '';
@@ -2722,7 +2619,7 @@
                 
                 ${analysis.seo_meta && typeof analysis.seo_meta === 'object' && !Array.isArray(analysis.seo_meta) ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔍 SEO et métadonnées</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-search"></i> SEO et métadonnées</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
                         ${analysis.seo_meta.meta_title ? `<div class="info-row"><span class="info-label">Titre:</span><span class="info-value">${analysis.seo_meta.meta_title}</span></div>` : ''}
                         ${analysis.seo_meta.meta_description ? `<div class="info-row"><span class="info-label">Description:</span><span class="info-value">${analysis.seo_meta.meta_description}</span></div>` : ''}
@@ -2733,7 +2630,7 @@
                 
                 ${analysis.performance_metrics && typeof analysis.performance_metrics === 'object' && !Array.isArray(analysis.performance_metrics) && Object.keys(analysis.performance_metrics).length > 0 ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">⚡ Métriques de performance</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-bolt"></i> Métriques de performance</h3>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
                         ${Object.entries(analysis.performance_metrics).map(([key, value]) => 
                             `<div class="info-row"><span class="info-label">${key}:</span><span class="info-value"><strong>${value || 'N/A'}</strong></span></div>`
@@ -2744,7 +2641,7 @@
                 
                 ${analysis.nmap_scan ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔍 Scan Nmap</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-search"></i> Scan Nmap</h3>
                     <details style="cursor: pointer;">
                         <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir les détails du scan</summary>
                         <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.nmap_scan, null, 2)}</pre>
@@ -2754,7 +2651,7 @@
                 
                 ${analysis.technical_details ? `
                 <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">🔧 Détails techniques</h3>
+                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;"><i class="fas fa-tools"></i> Détails techniques</h3>
                     <details style="cursor: pointer;">
                         <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir tous les détails</summary>
                         <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.technical_details, null, 2)}</pre>
@@ -2844,17 +2741,17 @@
                 </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem;">
-                        ${createStatCard('🌐', 'Sous-domaines', subdomains.length, '#9333ea')}
-                        ${createStatCard('📧', 'Emails', emailCount, '#3b82f6')}
-                        ${createStatCard('👥', 'Réseaux sociaux', socialCount, '#10b981')}
-                        ${createStatCard('⚙️', 'Technologies', techCount, '#f59e0b')}
+                        ${createStatCard('<i class="fas fa-globe"></i>', 'Sous-domaines', subdomains.length, '#9333ea')}
+                        ${createStatCard('<i class="fas fa-envelope"></i>', 'Emails', emailCount, '#3b82f6')}
+                        ${createStatCard('<i class="fas fa-users"></i>', 'Réseaux sociaux', socialCount, '#10b981')}
+                        ${createStatCard('<i class="fas fa-cog"></i>', 'Technologies', techCount, '#f59e0b')}
                 </div>
                     ${analysis.url ? `
                         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
                             <a href="${analysis.url}" target="_blank" style="color: white; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 0.5rem;">
-                                <span>🌐</span>
+                                <i class="fas fa-globe"></i>
                                 <span>${analysis.url}</span>
-                                <span style="font-size: 0.75rem;">↗</span>
+                                <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
                             </a>
                 </div>
                 ` : ''}
@@ -2863,7 +2760,7 @@
                 ${subdomains.length > 0 ? `
                 <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>🌐</span>
+                        <i class="fas fa-globe"></i>
                         <span>Sous-domaines</span>
                         <span style="background: #e9d5ff; color: #6b21a8; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${subdomains.length}</span>
                     </h3>
@@ -2903,7 +2800,7 @@
                 ${socialCount > 0 ? `
                 <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>👥</span>
+                        <i class="fas fa-users"></i>
                         <span>Réseaux sociaux</span>
                         <span style="background: #d1fae5; color: #065f46; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${socialCount}</span>
                     </h3>
@@ -2916,9 +2813,9 @@
                                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                                         ${urlList.map(url => `
                                             <a href="${url}" target="_blank" style="background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; text-decoration: none; color: #2563eb; font-size: 0.9rem; border: 1px solid #e5e7eb; display: inline-flex; align-items: center; gap: 0.5rem; transition: background 0.2s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
-                                                <span>🔗</span>
+                                                <i class="fas fa-link"></i>
                                                 <span>${escapeHtml(url)}</span>
-                                                <span style="font-size: 0.75rem;">↗</span>
+                                                <i class="fas fa-external-link-alt" style="font-size: 0.75rem;"></i>
                                             </a>
                                         `).join('')}
                                     </div>
@@ -2937,21 +2834,46 @@
                         <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;">${techCount}</span>
                     </h3>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        ${Object.entries(technologies).map(([category, techs]) => {
+                        ${Object.entries(technologies)
+                            .filter(([category]) => {
+                                // Filtrer les clés indésirables
+                                const lowerCategory = category.toLowerCase();
+                                return !lowerCategory.includes('raw_output') && 
+                                       !lowerCategory.includes('error') && 
+                                       !lowerCategory.includes('non disponible') &&
+                                       category !== 'raw_output' &&
+                                       category !== 'error';
+                            })
+                            .map(([category, techs]) => {
                             const techList = Array.isArray(techs) ? techs : [techs];
+                                // Filtrer aussi les valeurs vides ou d'erreur
+                                const validTechs = techList.filter(tech => {
+                                    if (!tech) return false;
+                                    const techStr = String(tech).toLowerCase();
+                                    return !techStr.includes('non disponible') && 
+                                           !techStr.includes('error') &&
+                                           techStr.trim().length > 0;
+                                });
+                                
+                                if (validTechs.length === 0) return '';
+                                
                             return `
                                 <div>
-                                    <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; text-transform: capitalize;">${escapeHtml(category)}</div>
+                                        <div style="font-weight: 600; color: #374151; margin-bottom: 0.5rem; text-transform: capitalize; font-size: 0.95rem;">
+                                            ${escapeHtml(category.replace(/_/g, ' '))}
+                                        </div>
                                     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                                        ${techList.map(tech => `
-                                            <div style="background: #fef3c7; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem; color: #92400e; border: 1px solid #fde68a;">
-                                                ${escapeHtml(tech)}
+                                            ${validTechs.map(tech => `
+                                                <div style="background: #fef3c7; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem; color: #92400e; border: 1px solid #fde68a; font-weight: 500;">
+                                                    ${escapeHtml(String(tech))}
                                             </div>
                                         `).join('')}
                                     </div>
                                 </div>
                             `;
-                        }).join('')}
+                            })
+                            .filter(html => html !== '')
+                            .join('')}
                     </div>
                 </div>
                 ` : ''}
@@ -2959,7 +2881,7 @@
                 ${Object.keys(dnsRecords).length > 0 ? `
                 <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>📡</span>
+                        <i class="fas fa-satellite-dish"></i>
                         <span>Enregistrements DNS</span>
                     </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -2985,7 +2907,7 @@
                 ${Object.keys(whoisInfo).length > 0 ? `
                 <div class="detail-section" style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>📋</span>
+                        <i class="fas fa-clipboard"></i>
                         <span>Informations WHOIS</span>
                     </h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
@@ -3001,7 +2923,7 @@
                 
                 ${(!subdomains.length && !emailCount && !socialCount && !techCount && !Object.keys(dnsRecords).length && !Object.keys(whoisInfo).length) ? `
                 <div style="text-align: center; padding: 3rem; color: #6b7280;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                    <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="fas fa-search"></i></div>
                     <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Aucune donnée OSINT disponible</div>
                     <div style="font-size: 0.9rem;">Lancez une analyse OSINT pour collecter des informations.</div>
                 </div>
@@ -3028,150 +2950,442 @@
         const riskColor = riskScore >= 70 ? '#e74c3c' : riskScore >= 40 ? '#f39c12' : '#27ae60';
         const riskLabel = riskScore >= 70 ? 'Élevé' : riskScore >= 40 ? 'Moyen' : 'Faible';
         
+        // Extraire forms_checks et résultats des outils depuis pentest_details
+        let forms_checks = [];
+        let ffuf_results = null;
+        let gobuster_results = null;
+        let dirsearch_results = null;
+        let masscan_results = null;
+        let nmap_results = null;
+        
+        if (analysis.pentest_details && typeof analysis.pentest_details === 'object') {
+            if (Array.isArray(analysis.pentest_details.forms_checks)) {
+                forms_checks = analysis.pentest_details.forms_checks;
+            } else if (analysis.pentest_details.forms_checks) {
+                forms_checks = [analysis.pentest_details.forms_checks];
+            }
+            
+            // Extraire les résultats des outils de scan
+            ffuf_results = analysis.pentest_details.ffuf || null;
+            gobuster_results = analysis.pentest_details.gobuster || null;
+            dirsearch_results = analysis.pentest_details.dirsearch || null;
+            masscan_results = analysis.pentest_details.masscan || null;
+            nmap_results = analysis.pentest_details.nmap || null;
+        }
+        
+        // Fonction helper pour obtenir la couleur de sévérité
+        function getSeverityColor(severity) {
+            if (!severity) return '#6b7280';
+            const s = severity.toLowerCase();
+            if (s.includes('crit') || s.includes('high')) return '#e74c3c';
+            if (s.includes('medium') || s.includes('moyen')) return '#f39c12';
+            if (s.includes('low') || s.includes('faible')) return '#3498db';
+            return '#6b7280';
+        }
+        
+        // Fonction helper pour formater les vulnérabilités normalisées
+        function formatVulnerability(vuln) {
+            if (typeof vuln === 'string') {
+                return `<div style="padding: 0.75rem; background: #fee; border-left: 3px solid #e74c3c; border-radius: 6px; margin-bottom: 0.5rem;">
+                    <strong style="color: #c33;"><i class="fas fa-exclamation-triangle"></i></strong> ${escapeHtml(vuln)}
+                </div>`;
+            }
+            const name = vuln.name || vuln.title || 'Vulnérabilité inconnue';
+            const severity = vuln.severity || 'Non spécifiée';
+            const description = vuln.description || '';
+            const recommendation = vuln.recommendation || vuln.fix || '';
+            const severityColor = getSeverityColor(severity);
+            
+            return `<div style="padding: 1rem; background: #fff; border-left: 4px solid ${severityColor}; border-radius: 8px; margin-bottom: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <strong style="color: #2c3e50; font-size: 1rem;">${escapeHtml(name)}</strong>
+                    <span style="background: ${severityColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${escapeHtml(severity)}</span>
+                </div>
+                ${description ? `<div style="color: #555; margin-bottom: 0.5rem; line-height: 1.5;">${escapeHtml(description)}</div>` : ''}
+                ${recommendation ? `<div style="background: #f0f9ff; padding: 0.75rem; border-radius: 6px; border-left: 3px solid #3498db; margin-top: 0.5rem;">
+                    <strong style="color: #1e40af; font-size: 0.85rem;"><i class="fas fa-lightbulb"></i> Recommandation:</strong>
+                    <div style="color: #1e3a8a; margin-top: 0.25rem;">${escapeHtml(recommendation)}</div>
+                </div>` : ''}
+            </div>`;
+        }
+        
         let html = `
             <div class="analysis-details" style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- En-tête avec score de risque -->
-                <div class="detail-section" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin: 0 0 1rem 0; color: white;">🛡️ Informations générales</h3>
-                    <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; color: white;">
-                        <div><strong>📅 Date:</strong> ${date}</div>
-                        <div><strong>🌐 URL:</strong> <a href="${analysis.url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${analysis.url}</a></div>
-                        <div><strong>🏷️ Domaine:</strong> ${analysis.domain || 'N/A'}</div>
-                        <div><strong>⚠️ Score de risque:</strong> <span style="background: ${riskColor}; padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: bold; color: white;">${riskScore}/100 (${riskLabel})</span></div>
+                <div class="detail-section" style="background: linear-gradient(135deg, #dc2626 0%, #f59e0b 100%); color: white; padding: 1.75rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0; color: white; font-size: 1.5rem;"><i class="fas fa-shield-alt"></i> Analyse de sécurité</h3>
+                            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.95rem; opacity: 0.95;">
+                                <div><strong><i class="fas fa-calendar"></i></strong> ${date}</div>
+                                <div><strong><i class="fas fa-globe"></i></strong> <a href="${escapeHtml(analysis.url)}" target="_blank" style="color: #ffd700; text-decoration: underline;">${escapeHtml(analysis.url)}</a></div>
+                                <div><strong><i class="fas fa-tag"></i></strong> ${escapeHtml(analysis.domain || 'N/A')}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">Score de risque</div>
+                            <div style="background: ${riskColor}; padding: 0.5rem 1.25rem; border-radius: 20px; font-weight: bold; font-size: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                                ${riskScore}/100
+                            </div>
+                            <div style="font-size: 0.85rem; margin-top: 0.25rem; opacity: 0.9;">${riskLabel}</div>
+                        </div>
                     </div>
                 </div>
                 
                 ${analysis.vulnerabilities && Array.isArray(analysis.vulnerabilities) && analysis.vulnerabilities.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #e74c3c;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🚨 Vulnérabilités <span class="badge badge-danger">${analysis.vulnerabilities.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #e74c3c; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.5rem;"></i>
+                        Vulnérabilités détectées
+                        <span style="background: #fee; color: #c33; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.vulnerabilities.length}</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${analysis.vulnerabilities.map(vuln => formatVulnerability(vuln)).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${analysis.security_headers && Object.keys(analysis.security_headers).length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-shield-alt" style="font-size: 1.5rem;"></i>
+                        En-têtes de sécurité
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;">
+                        ${Object.entries(analysis.security_headers).map(([header, data]) => {
+                            const status = data.status || (typeof data === 'string' ? data : 'present');
+                            const isPresent = status === 'present' || status === 'ok' || status === 'true';
+                            const statusColor = isPresent ? '#10b981' : '#ef4444';
+                            const statusText = isPresent ? '<i class="fas fa-check"></i> Présent' : '<i class="fas fa-times"></i> Absent';
+                            return `<div style="padding: 0.75rem; background: ${isPresent ? '#f0fdf4' : '#fef2f2'}; border-left: 3px solid ${statusColor}; border-radius: 6px;">
+                                <div style="font-weight: 600; color: #1f2937; margin-bottom: 0.25rem;">${escapeHtml(header)}</div>
+                                <div style="color: ${statusColor}; font-size: 0.85rem; font-weight: 600;">${statusText}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : analysis.security_headers_analysis && Object.keys(analysis.security_headers_analysis).length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-shield-alt" style="font-size: 1.5rem;"></i>
+                        En-têtes de sécurité
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;">
+                        ${Object.entries(analysis.security_headers_analysis).map(([header, data]) => {
+                            const status = data.status || (typeof data === 'string' ? data : 'present');
+                            const isPresent = status === 'present' || status === 'ok' || status === 'true';
+                            const statusColor = isPresent ? '#10b981' : '#ef4444';
+                            const statusText = isPresent ? '<i class="fas fa-check"></i> Présent' : '<i class="fas fa-times"></i> Absent';
+                            return `<div style="padding: 0.75rem; background: ${isPresent ? '#f0fdf4' : '#fef2f2'}; border-left: 3px solid ${statusColor}; border-radius: 6px;">
+                                <div style="font-weight: 600; color: #1f2937; margin-bottom: 0.25rem;">${escapeHtml(header)}</div>
+                                <div style="color: ${statusColor}; font-size: 0.85rem; font-weight: 600;">${statusText}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${analysis.cms_vulnerabilities && Object.keys(analysis.cms_vulnerabilities).length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #e74c3c; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+                        Vulnérabilités CMS
+                        <span style="background: #fee; color: #c33; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${Object.keys(analysis.cms_vulnerabilities).length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.vulnerabilities.map(vuln => `<div style="padding: 0.75rem; background: #fee; border-left: 3px solid #e74c3c; border-radius: 4px;"><strong>⚠️</strong> ${vuln}</div>`).join('')}
+                        ${Object.entries(analysis.cms_vulnerabilities).map(([name, vuln]) => {
+                            const severity = (typeof vuln === 'object' && vuln.severity) ? vuln.severity : 'Non spécifiée';
+                            const description = (typeof vuln === 'object' && vuln.description) ? vuln.description : (typeof vuln === 'string' ? vuln : '');
+                            const severityColor = getSeverityColor(severity);
+                            return `<div style="padding: 1rem; background: #fff; border-left: 4px solid ${severityColor}; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <strong style="color: #2c3e50;">${escapeHtml(name)}</strong>
+                                    <span style="background: ${severityColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${escapeHtml(severity)}</span>
+                                </div>
+                                ${description ? `<div style="color: #555; line-height: 1.5;">${escapeHtml(description)}</div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${analysis.open_ports && Array.isArray(analysis.open_ports) && analysis.open_ports.length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #8b5cf6; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-globe" style="font-size: 1.5rem;"></i>
+                        Ports ouverts
+                        <span style="background: #f3e8ff; color: #6b21a8; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.open_ports.length}</span>
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem;">
+                        ${analysis.open_ports.map(port => {
+                            const portNum = port.port || port;
+                            const service = port.service || 'Inconnu';
+                            return `<div style="padding: 0.75rem; background: #f9fafb; border-left: 3px solid #8b5cf6; border-radius: 6px;">
+                                <div style="font-weight: 600; color: #1f2937;">Port ${portNum}</div>
+                                <div style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">${escapeHtml(service)}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${forms_checks.length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #10b981; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">📝</span>
+                        Formulaires testés
+                        <span style="background: #f0fdf4; color: #059669; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${forms_checks.length}</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${forms_checks.map((form, idx) => {
+                            const hasError = form.error;
+                            const isOk = form.ok === true || form.status_code === 200;
+                            const statusColor = hasError ? '#ef4444' : (isOk ? '#10b981' : '#f59e0b');
+                            const statusText = hasError ? '<i class="fas fa-times"></i> Erreur' : (isOk ? '<i class="fas fa-check"></i> Accessible' : `<i class="fas fa-exclamation-triangle"></i> ${form.status_code || 'Inconnu'}`);
+                            return `<div style="padding: 1rem; background: ${hasError ? '#fef2f2' : (isOk ? '#f0fdf4' : '#fffbeb')}; border-left: 4px solid ${statusColor}; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                                    <strong style="color: #1f2937;">Formulaire #${idx + 1}</strong>
+                                    <span style="background: ${statusColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">${statusText}</span>
+                                    <span style="background: #e5e7eb; color: #4b5563; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${escapeHtml(form.method || 'GET')}</span>
+                                </div>
+                                <div style="color: #6b7280; font-size: 0.9rem; word-break: break-all;">
+                                    <strong>Action:</strong> ${escapeHtml(form.action || 'N/A')}
+                                </div>
+                                ${form.status_code ? `<div style="color: #6b7280; font-size: 0.9rem; margin-top: 0.25rem;">
+                                    <strong>Code HTTP:</strong> ${form.status_code}
+                                </div>` : ''}
+                                ${form.error ? `<div style="color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; padding: 0.5rem; background: #fee; border-radius: 4px;">
+                                    <strong>Erreur:</strong> ${escapeHtml(form.error)}
+                                </div>` : ''}
+                            </div>`;
+                        }).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.sql_injection ? `
-                <div class="detail-section" style="border-left: 4px solid #e74c3c;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">💉 Injection SQL</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #fee; border-radius: 4px; margin-bottom: 0.5rem; color: #c33;">⚠️ Voir les détails d'injection SQL</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.sql_injection, null, 2)}</pre>
-                    </details>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #e74c3c; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">💉</span>
+                        Injection SQL
+                    </h3>
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+                        <pre style="margin: 0; font-size: 0.85rem; line-height: 1.6; color: #374151;">${escapeHtml(JSON.stringify(analysis.sql_injection, null, 2))}</pre>
+                    </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.xss_vulnerabilities && Array.isArray(analysis.xss_vulnerabilities) && analysis.xss_vulnerabilities.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #f39c12;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔓 Vulnérabilités XSS <span class="badge badge-warning">${analysis.xss_vulnerabilities.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #f39c12; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔓</span>
+                        Vulnérabilités XSS
+                        <span style="background: #fff3cd; color: #856404; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.xss_vulnerabilities.length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.xss_vulnerabilities.map(xss => `<div style="padding: 0.75rem; background: #fff3cd; border-left: 3px solid #f39c12; border-radius: 4px;">${xss}</div>`).join('')}
+                        ${analysis.xss_vulnerabilities.map(xss => `<div style="padding: 0.75rem; background: #fff3cd; border-left: 3px solid #f39c12; border-radius: 6px; color: #856404;">${escapeHtml(typeof xss === 'string' ? xss : JSON.stringify(xss))}</div>`).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.csrf_vulnerabilities && Array.isArray(analysis.csrf_vulnerabilities) && analysis.csrf_vulnerabilities.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #f39c12;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔄 Vulnérabilités CSRF <span class="badge badge-warning">${analysis.csrf_vulnerabilities.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #f39c12; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔄</span>
+                        Vulnérabilités CSRF
+                        <span style="background: #fff3cd; color: #856404; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.csrf_vulnerabilities.length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.csrf_vulnerabilities.map(csrf => `<div style="padding: 0.75rem; background: #fff3cd; border-left: 3px solid #f39c12; border-radius: 4px;">${csrf}</div>`).join('')}
+                        ${analysis.csrf_vulnerabilities.map(csrf => `<div style="padding: 0.75rem; background: #fff3cd; border-left: 3px solid #f39c12; border-radius: 6px; color: #856404;">${escapeHtml(typeof csrf === 'string' ? csrf : JSON.stringify(csrf))}</div>`).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.authentication_issues && Array.isArray(analysis.authentication_issues) && analysis.authentication_issues.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #3498db;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔐 Problèmes d'authentification <span class="badge badge-info">${analysis.authentication_issues.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-key" style="font-size: 1.5rem;"></i>
+                        Problèmes d'authentification
+                        <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.authentication_issues.length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.authentication_issues.map(issue => `<div style="padding: 0.75rem; background: #d1ecf1; border-left: 3px solid #3498db; border-radius: 4px;">${issue}</div>`).join('')}
+                        ${analysis.authentication_issues.map(issue => `<div style="padding: 0.75rem; background: #dbeafe; border-left: 3px solid #3498db; border-radius: 6px; color: #1e40af;">${escapeHtml(typeof issue === 'string' ? issue : JSON.stringify(issue))}</div>`).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.authorization_issues && Array.isArray(analysis.authorization_issues) && analysis.authorization_issues.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #3498db;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">👤 Problèmes d'autorisation <span class="badge badge-info">${analysis.authorization_issues.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">👤</span>
+                        Problèmes d'autorisation
+                        <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.authorization_issues.length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.authorization_issues.map(issue => `<div style="padding: 0.75rem; background: #d1ecf1; border-left: 3px solid #3498db; border-radius: 4px;">${issue}</div>`).join('')}
+                        ${analysis.authorization_issues.map(issue => `<div style="padding: 0.75rem; background: #dbeafe; border-left: 3px solid #3498db; border-radius: 6px; color: #1e40af;">${escapeHtml(typeof issue === 'string' ? issue : JSON.stringify(issue))}</div>`).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.sensitive_data_exposure && Array.isArray(analysis.sensitive_data_exposure) && analysis.sensitive_data_exposure.length > 0 ? `
-                <div class="detail-section" style="border-left: 4px solid #e74c3c;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔒 Exposition de données sensibles <span class="badge badge-danger">${analysis.sensitive_data_exposure.length}</span></h3>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #e74c3c; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-lock" style="font-size: 1.5rem;"></i>
+                        Exposition de données sensibles
+                        <span style="background: #fee; color: #c33; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${analysis.sensitive_data_exposure.length}</span>
+                    </h3>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${analysis.sensitive_data_exposure.map(data => `<div style="padding: 0.75rem; background: #fee; border-left: 3px solid #e74c3c; border-radius: 4px;"><strong>⚠️</strong> ${data}</div>`).join('')}
+                        ${analysis.sensitive_data_exposure.map(data => `<div style="padding: 0.75rem; background: #fee; border-left: 3px solid #e74c3c; border-radius: 6px; color: #c33;"><strong>⚠️</strong> ${escapeHtml(typeof data === 'string' ? data : JSON.stringify(data))}</div>`).join('')}
                     </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.security_headers_analysis ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🛡️ Analyse des en-têtes de sécurité</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir l'analyse des en-têtes</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.security_headers_analysis, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
                 ${analysis.ssl_tls_analysis ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔒 Analyse SSL/TLS</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir l'analyse SSL/TLS</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.ssl_tls_analysis, null, 2)}</pre>
-                    </details>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #10b981; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔒</span>
+                        Analyse SSL/TLS
+                    </h3>
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+                        <pre style="margin: 0; font-size: 0.85rem; line-height: 1.6; color: #374151;">${escapeHtml(JSON.stringify(analysis.ssl_tls_analysis, null, 2))}</pre>
+                    </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.waf_detection ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🚧 Détection WAF</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir la détection WAF</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.waf_detection, null, 2)}</pre>
-                    </details>
-                </div>
-                ` : ''}
-                
-                ${analysis.cms_vulnerabilities ? `
-                <div class="detail-section" style="border-left: 4px solid #e74c3c;">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">⚠️ Vulnérabilités CMS</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #fee; border-radius: 4px; margin-bottom: 0.5rem; color: #c33;">Voir les vulnérabilités CMS</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.cms_vulnerabilities, null, 2)}</pre>
-                    </details>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #8b5cf6; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🚧</span>
+                        Détection WAF
+                    </h3>
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+                        <pre style="margin: 0; font-size: 0.85rem; line-height: 1.6; color: #374151;">${escapeHtml(JSON.stringify(analysis.waf_detection, null, 2))}</pre>
+                    </div>
                 </div>
                 ` : ''}
                 
                 ${analysis.api_security ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🔌 Sécurité API</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir l'analyse de sécurité API</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.api_security, null, 2)}</pre>
-                    </details>
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #06b6d4; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-plug" style="font-size: 1.5rem;"></i>
+                        Sécurité API
+                    </h3>
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+                        <pre style="margin: 0; font-size: 0.85rem; line-height: 1.6; color: #374151;">${escapeHtml(JSON.stringify(analysis.api_security, null, 2))}</pre>
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.network_scan ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">🌐 Scan réseau</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir le scan réseau</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.network_scan, null, 2)}</pre>
-                    </details>
+                ${analysis.network_scan && typeof analysis.network_scan === 'object' && Object.keys(analysis.network_scan).length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #6366f1; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-globe" style="font-size: 1.5rem;"></i>
+                        Scan réseau
+                    </h3>
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+                        <pre style="margin: 0; font-size: 0.85rem; line-height: 1.6; color: #374151;">${escapeHtml(JSON.stringify(analysis.network_scan, null, 2))}</pre>
+                    </div>
                 </div>
                 ` : ''}
                 
-                ${analysis.pentest_details ? `
-                <div class="detail-section">
-                    <h3 style="margin: 0 0 1rem 0; color: #2c3e50; border-bottom: 2px solid #fa709a; padding-bottom: 0.5rem;">📊 Détails complets du Pentest</h3>
-                    <details style="cursor: pointer;">
-                        <summary style="padding: 0.5rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem;">Voir tous les détails</summary>
-                        <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">${JSON.stringify(analysis.pentest_details, null, 2)}</pre>
-                    </details>
+                ${ffuf_results && !ffuf_results.error ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #3b82f6; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-search" style="font-size: 1.5rem;"></i>
+                        Scan FFUF (Directory Bruteforce)
+                        ${ffuf_results.vulnerabilities && ffuf_results.vulnerabilities.length > 0 ? `
+                        <span style="background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${ffuf_results.vulnerabilities.length} ressources</span>
+                        ` : ''}
+                    </h3>
+                    ${ffuf_results.vulnerabilities && ffuf_results.vulnerabilities.length > 0 ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+                        ${ffuf_results.vulnerabilities.slice(0, 50).map(v => `
+                            <div style="padding: 0.5rem; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.9rem;">
+                                ${escapeHtml(v.description || JSON.stringify(v))}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : '<div style="color: #6b7280; font-style: italic;">Aucune ressource trouvée</div>'}
+                </div>
+                ` : ''}
+                
+                ${gobuster_results && !gobuster_results.error ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #8b5cf6; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        Scan Gobuster (Directory Bruteforce)
+                        ${gobuster_results.vulnerabilities && gobuster_results.vulnerabilities.length > 0 ? `
+                        <span style="background: #f3e8ff; color: #6b21a8; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${gobuster_results.vulnerabilities.length} ressources</span>
+                        ` : ''}
+                    </h3>
+                    ${gobuster_results.vulnerabilities && gobuster_results.vulnerabilities.length > 0 ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+                        ${gobuster_results.vulnerabilities.slice(0, 50).map(v => `
+                            <div style="padding: 0.5rem; background: #faf5ff; border-left: 3px solid #8b5cf6; border-radius: 4px; font-size: 0.9rem;">
+                                ${escapeHtml(v.description || JSON.stringify(v))}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : '<div style="color: #6b7280; font-style: italic;">Aucune ressource trouvée</div>'}
+                </div>
+                ` : ''}
+                
+                ${dirsearch_results && !dirsearch_results.error ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #ec4899; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        Scan Dirsearch (Directory Bruteforce)
+                        ${dirsearch_results.vulnerabilities && dirsearch_results.vulnerabilities.length > 0 ? `
+                        <span style="background: #fce7f3; color: #9f1239; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${dirsearch_results.vulnerabilities.length} ressources</span>
+                        ` : ''}
+                    </h3>
+                    ${dirsearch_results.vulnerabilities && dirsearch_results.vulnerabilities.length > 0 ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+                        ${dirsearch_results.vulnerabilities.slice(0, 50).map(v => `
+                            <div style="padding: 0.5rem; background: #fdf2f8; border-left: 3px solid #ec4899; border-radius: 4px; font-size: 0.9rem;">
+                                ${escapeHtml(v.description || JSON.stringify(v))}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : '<div style="color: #6b7280; font-style: italic;">Aucune ressource trouvée</div>'}
+                </div>
+                ` : ''}
+                
+                ${masscan_results && !masscan_results.error && masscan_results.open_ports && masscan_results.open_ports.length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #f59e0b; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-plug" style="font-size: 1.5rem;"></i>
+                        Scan Masscan (Ports ouverts)
+                        <span style="background: #fef3c7; color: #92400e; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${masscan_results.open_ports.length} ports</span>
+                    </h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${masscan_results.open_ports.map(port => `
+                            <div style="background: #fef3c7; padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.9rem; color: #92400e; border: 1px solid #fde68a;">
+                                ${port.port || port}${port.protocol ? `/${port.protocol}` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${nmap_results && nmap_results.services && nmap_results.services.length > 0 ? `
+                <div class="detail-section" style="background: #fff; padding: 1.5rem; border-radius: 10px; border-left: 5px solid #10b981; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <h3 style="margin: 0 0 1.25rem 0; color: #2c3e50; font-size: 1.2rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        Scan Nmap (Services détectés)
+                        <span style="background: #d1fae5; color: #065f46; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700;">${nmap_results.services.length} services</span>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${nmap_results.services.map(svc => `
+                            <div style="padding: 0.75rem; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 6px;">
+                                <div style="font-weight: 600; color: #065f46; margin-bottom: 0.25rem;">
+                                    Port ${svc.port || 'N/A'} / ${svc.protocol || 'tcp'}
+                                </div>
+                                ${svc.service ? `<div style="color: #047857; font-size: 0.9rem;">Service: ${escapeHtml(svc.service)}</div>` : ''}
+                                ${svc.version ? `<div style="color: #6b7280; font-size: 0.85rem; margin-top: 0.25rem;">Version: ${escapeHtml(svc.version)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
                 ` : ''}
             </div>

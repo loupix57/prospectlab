@@ -763,7 +763,7 @@
                     ` : ''}
                     ${linkedinUrl ? `
                         <div class="person-info">
-                            <strong>💼 LinkedIn:</strong> 
+                            <strong><i class="fab fa-linkedin"></i> LinkedIn:</strong> 
                             <a href="${escapeHtml(linkedinUrl)}" target="_blank" class="person-link" rel="noopener noreferrer">
                                 Voir le profil
                             </a>
