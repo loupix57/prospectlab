@@ -1335,7 +1335,8 @@ class OSINTAnalyzer:
         tech_info = {}
         
         if not self.tools['whatweb']:
-            return {'error': 'whatweb non disponible'}
+            # Retourner un dict vide au lieu d'une erreur pour éviter l'affichage
+            return {}
         
         result = self._run_wsl_command(['whatweb', '--no-errors', url], timeout=30)
         
@@ -1343,21 +1344,34 @@ class OSINTAnalyzer:
             output = result['stdout']
             # Nettoyer les codes ANSI
             clean_output = self._clean_ansi_codes(output)
-            # Parser les résultats whatweb
-            tech_info['raw_output'] = clean_output
+            # Ne pas sauvegarder raw_output dans technologies, seulement parser les infos utiles
+            # tech_info['raw_output'] = clean_output  # Commenté pour éviter l'affichage
             # Extraire les technologies détectées
             if 'WordPress' in output:
-                tech_info['cms'] = 'WordPress'
+                tech_info['cms'] = ['WordPress']
             if 'Drupal' in output:
-                tech_info['cms'] = 'Drupal'
+                tech_info['cms'] = ['Drupal']
             if 'Joomla' in output:
-                tech_info['cms'] = 'Joomla'
+                tech_info['cms'] = ['Joomla']
             if 'Apache' in output:
-                tech_info['server'] = 'Apache'
+                tech_info['server'] = ['Apache']
             if 'nginx' in output.lower():
-                tech_info['server'] = 'Nginx'
+                tech_info['server'] = ['Nginx']
             if 'PHP' in output:
-                tech_info['language'] = 'PHP'
+                tech_info['language'] = ['PHP']
+            # Extraire d'autres technologies courantes
+            if 'Vercel' in output:
+                tech_info['hosting'] = ['Vercel']
+            if 'Next.js' in output or 'X-Powered-By[Next.js]' in output:
+                tech_info['framework'] = ['Next.js']
+            if 'React' in output:
+                tech_info['framework'] = ['React']
+            if 'Vue' in output:
+                tech_info['framework'] = ['Vue']
+            if 'jQuery' in output:
+                tech_info['library'] = ['jQuery']
+            if 'Google Analytics' in output or 'gtag' in output.lower():
+                tech_info['analytics'] = ['Google Analytics']
         
         return tech_info
     

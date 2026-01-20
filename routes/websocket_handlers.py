@@ -11,7 +11,8 @@ from utils.helpers import safe_emit
 from celery_app import celery
 from tasks.analysis_tasks import analyze_entreprise_task
 from tasks.scraping_tasks import scrape_emails_task, scrape_analysis_task
-from tasks.technical_analysis_tasks import pentest_analysis_task, technical_analysis_task
+from tasks.technical_analysis_tasks import technical_analysis_task
+from tasks.pentest_tasks import pentest_analysis_task
 from tasks.osint_tasks import osint_analysis_task
 import os
 import threading
@@ -179,7 +180,7 @@ def register_websocket_handlers(socketio, app):
                                                     break
                                         
                                         if scraping_already_started:
-                                            logger.info(f'Scraping déjà en cours pour l\'analyse {analysis_id}, ignoré')
+                                            logger.debug(f'Scraping déjà en cours pour l\'analyse {analysis_id}, ignoré')
                                             scraping_launched = True
                                             break
                                         
@@ -204,7 +205,7 @@ def register_websocket_handlers(socketio, app):
 
                                         # L'analyse technique est maintenant lancée en parallèle dans la tâche de scraping
                                         # On va suivre les tâches techniques via le monitoring du scraping
-                                        logger.info(f'[WebSocket] L\'analyse technique sera lancée en parallèle du scraping pour chaque entreprise')
+                                        logger.debug(f'Analyse technique lancée en parallèle du scraping')
                                         
                                         # Émettre l'événement de démarrage de l'analyse technique immédiatement
                                         # On utilisera le même nombre que les entreprises scrapées
@@ -235,7 +236,7 @@ def register_websocket_handlers(socketio, app):
                                                 },
                                                 room=session_id
                                             )
-                                            logger.info(f'[WebSocket] Événement technical_analysis_started émis pour {total_entreprises_avec_site} entreprises')
+                                            logger.debug(f'Événement technical_analysis_started émis pour {total_entreprises_avec_site} entreprises')
                                         
                                         tech_tasks_to_monitor = []  # Sera rempli dès qu'on reçoit les IDs dans le meta
                                         tech_tasks_monitoring_started = False  # Flag pour démarrer le monitoring une seule fois
@@ -282,7 +283,7 @@ def register_websocket_handlers(socketio, app):
                                                                 if tech_tasks_ids and not tech_tasks_monitoring_started:
                                                                     tech_tasks_to_monitor = tech_tasks_ids
                                                                     tech_tasks_monitoring_started = True
-                                                                    logger.info(f'[WebSocket] Démarrant le monitoring de {len(tech_tasks_to_monitor)} analyses techniques en temps réel')
+                                                                    logger.debug(f'Monitoring de {len(tech_tasks_to_monitor)} analyses techniques démarré')
                                                                 
                                                                     # Démarrer le monitoring des analyses techniques en temps réel
                                                                     def monitor_tech_tasks_realtime():
@@ -421,13 +422,13 @@ def register_websocket_handlers(socketio, app):
                                                                     
                                                                     if new_tasks:
                                                                         monitor_scraping.osint_tasks_to_monitor.extend(new_tasks)
-                                                                        logger.info(f'[WebSocket] {len(new_tasks)} nouvelle(s) tâche(s) OSINT détectée(s), total: {len(monitor_scraping.osint_tasks_to_monitor)}')
+                                                                        logger.debug(f'{len(new_tasks)} nouvelle(s) tâche(s) OSINT détectée(s), total: {len(monitor_scraping.osint_tasks_to_monitor)}')
                                                                     
                                                                     # Démarrer le monitoring si ce n'est pas déjà fait
                                                                     if not monitor_scraping.osint_monitoring_started and len(monitor_scraping.osint_tasks_to_monitor) > 0:
                                                                         osint_tasks_to_monitor = monitor_scraping.osint_tasks_to_monitor
                                                                         monitor_scraping.osint_monitoring_started = True
-                                                                        logger.info(f'[WebSocket] Démarrant le monitoring de {len(osint_tasks_to_monitor)} analyses OSINT en temps réel')
+                                                                        logger.debug(f'Monitoring de {len(osint_tasks_to_monitor)} analyses OSINT démarré')
                                                                     
                                                                     # Émettre l'événement de démarrage OSINT
                                                                     safe_emit(
@@ -636,6 +637,199 @@ def register_websocket_handlers(socketio, app):
                                                                         )
                                                                     
                                                                     threading.Thread(target=monitor_osint_tasks_realtime, daemon=True).start()
+                                                                
+                                                                # Récupérer les IDs des tâches Pentest depuis le meta
+                                                                pentest_tasks_ids = meta_scraping.get('pentest_tasks_launched_ids', [])
+                                                                if pentest_tasks_ids:
+                                                                    if not hasattr(monitor_scraping, 'pentest_tasks_to_monitor'):
+                                                                        monitor_scraping.pentest_tasks_to_monitor = []
+                                                                        monitor_scraping.pentest_monitoring_started = False
+                                                                    
+                                                                    existing_pentest_ids = {t['task_id'] for t in monitor_scraping.pentest_tasks_to_monitor}
+                                                                    new_pentest_tasks = [t for t in pentest_tasks_ids if t['task_id'] not in existing_pentest_ids]
+                                                                    if new_pentest_tasks:
+                                                                        monitor_scraping.pentest_tasks_to_monitor.extend(new_pentest_tasks)
+                                                                        logger.info(f'[WebSocket] {len(new_pentest_tasks)} nouvelle(s) tâche(s) Pentest détectée(s), total: {len(monitor_scraping.pentest_tasks_to_monitor)}')
+                                                                    
+                                                                    if not monitor_scraping.pentest_monitoring_started and len(monitor_scraping.pentest_tasks_to_monitor) > 0:
+                                                                        monitor_scraping.pentest_monitoring_started = True
+                                                                        pentest_tasks_to_monitor = monitor_scraping.pentest_tasks_to_monitor
+                                                                        
+                                                                        safe_emit(
+                                                                            socketio,
+                                                                            'pentest_analysis_started',
+                                                                            {
+                                                                                'message': f'Analyse Pentest démarrée pour {len(pentest_tasks_to_monitor)} entreprises...',
+                                                                                'total': len(pentest_tasks_to_monitor),
+                                                                                'current': 0
+                                                                            },
+                                                                            room=session_id
+                                                                        )
+                                                                        
+                                                                        def monitor_pentest_tasks_realtime():
+                                                                            pentest_completed = 0
+                                                                            pentest_status = {}
+                                                                            last_global_progress = None
+                                                                            pentest_cumulative_totals = {
+                                                                                'vulnerabilities': 0,
+                                                                                'forms_tested': 0,
+                                                                                'sql_injections': 0,
+                                                                                'xss_vulnerabilities': 0,
+                                                                                'risk_score': 0
+                                                                            }
+                                                                            
+                                                                            while True:
+                                                                                current_tasks = monitor_scraping.pentest_tasks_to_monitor
+                                                                                total_pentest = len(current_tasks)
+                                                                                if total_pentest == 0:
+                                                                                    break
+                                                                                
+                                                                                total_progress_sum = 0
+                                                                                
+                                                                                for pentest_info in current_tasks:
+                                                                                    task_id = pentest_info['task_id']
+                                                                                    if task_id not in pentest_status:
+                                                                                        pentest_status[task_id] = {'completed': False, 'last_progress': None, 'current_progress': 0}
+                                                                                    
+                                                                                    if pentest_status[task_id]['completed']:
+                                                                                        total_progress_sum += 100
+                                                                                        continue
+                                                                                    
+                                                                                    try:
+                                                                                        pentest_result = celery.AsyncResult(task_id)
+                                                                                        current_state = pentest_result.state
+                                                                                        
+                                                                                        if current_state == 'PROGRESS':
+                                                                                            meta_pentest = pentest_result.info or {}
+                                                                                            progress_pentest = meta_pentest.get('progress', 0)
+                                                                                            message_pentest = meta_pentest.get('message', '')
+                                                                                            
+                                                                                            pentest_status[task_id]['current_progress'] = progress_pentest
+                                                                                            total_progress_sum += progress_pentest
+                                                                                            
+                                                                                            if pentest_status[task_id]['last_progress'] != progress_pentest:
+                                                                                                global_progress = int((total_progress_sum / total_pentest) if total_pentest > 0 else 0)
+                                                                                                safe_emit(
+                                                                                                    socketio,
+                                                                                                    'pentest_analysis_progress',
+                                                                                                    {
+                                                                                                        'current': pentest_completed,
+                                                                                                        'total': total_pentest,
+                                                                                                        'progress': global_progress,
+                                                                                                        'message': f'{message_pentest} - {pentest_info.get("nom", "N/A")}',
+                                                                                                        'url': pentest_info.get('url', ''),
+                                                                                                        'entreprise': pentest_info.get('nom', 'N/A'),
+                                                                                                        'task_progress': progress_pentest,
+                                                                                                        'cumulative_totals': pentest_cumulative_totals.copy()
+                                                                                                    },
+                                                                                                    room=session_id
+                                                                                                )
+                                                                                                pentest_status[task_id]['last_progress'] = progress_pentest
+                                                                                        elif current_state == 'SUCCESS':
+                                                                                            if not pentest_status[task_id]['completed']:
+                                                                                                pentest_status[task_id]['completed'] = True
+                                                                                                pentest_completed += 1
+                                                                                                total_progress_sum += 100
+                                                                                                
+                                                                                                result_pentest = pentest_result.result or {}
+                                                                                                summary = result_pentest.get('summary', {})
+                                                                                                
+                                                                                                # Calculer les totaux cumulés depuis le résultat Pentest
+                                                                                                if result_pentest.get('forms_checks'):
+                                                                                                    pentest_cumulative_totals['forms_tested'] += len(result_pentest.get('forms_checks', []))
+                                                                                                
+                                                                                                vulnerabilities = result_pentest.get('vulnerabilities', [])
+                                                                                                if vulnerabilities:
+                                                                                                    pentest_cumulative_totals['vulnerabilities'] += len(vulnerabilities)
+                                                                                                    # Compter les types spécifiques
+                                                                                                    for vuln in vulnerabilities:
+                                                                                                        vuln_type = vuln.get('type', '').lower()
+                                                                                                        if 'sql' in vuln_type or 'injection' in vuln_type:
+                                                                                                            pentest_cumulative_totals['sql_injections'] += 1
+                                                                                                        if 'xss' in vuln_type or 'cross-site' in vuln_type:
+                                                                                                            pentest_cumulative_totals['xss_vulnerabilities'] += 1
+                                                                                                
+                                                                                                # Ajouter le score de risque (moyenne)
+                                                                                                risk_score = result_pentest.get('risk_score', 0)
+                                                                                                if risk_score > 0:
+                                                                                                    # Calculer la moyenne des scores de risque
+                                                                                                    pentest_cumulative_totals['risk_score'] = int((pentest_cumulative_totals['risk_score'] * (pentest_completed - 1) + risk_score) / pentest_completed)
+                                                                                                
+                                                                                                global_progress = int((total_progress_sum / total_pentest) if total_pentest > 0 else 0)
+                                                                                                safe_emit(
+                                                                                                    socketio,
+                                                                                                    'pentest_analysis_progress',
+                                                                                                    {
+                                                                                                        'current': pentest_completed,
+                                                                                                        'total': total_pentest,
+                                                                                                        'progress': global_progress,
+                                                                                                        'message': f'Analyse Pentest terminée pour {pentest_info.get("nom", "N/A")}',
+                                                                                                        'url': pentest_info.get('url', ''),
+                                                                                                        'entreprise': pentest_info.get('nom', 'N/A'),
+                                                                                                        'task_progress': 100,
+                                                                                                        'summary': summary,
+                                                                                                        'risk_score': risk_score,
+                                                                                                        'cumulative_totals': pentest_cumulative_totals.copy()
+                                                                                                    },
+                                                                                                    room=session_id
+                                                                                                )
+                                                                                        elif current_state == 'FAILURE':
+                                                                                            if not pentest_status[task_id]['completed']:
+                                                                                                pentest_status[task_id]['completed'] = True
+                                                                                                pentest_completed += 1
+                                                                                                total_progress_sum += 100
+                                                                                                
+                                                                                                global_progress = int((total_progress_sum / total_pentest) if total_pentest > 0 else 0)
+                                                                                                safe_emit(
+                                                                                                    socketio,
+                                                                                                    'pentest_analysis_error',
+                                                                                                    {
+                                                                                                        'error': f'Erreur lors de l analyse Pentest pour {pentest_info.get("nom", "N/A")}',
+                                                                                                        'url': pentest_info.get('url', ''),
+                                                                                                        'entreprise': pentest_info.get('nom', 'N/A'),
+                                                                                                        'progress': global_progress
+                                                                                                    },
+                                                                                                    room=session_id
+                                                                                                )
+                                                                                    except Exception as e:
+                                                                                        logger.warning(f'Erreur monitoring tâche Pentest {task_id}: {e}')
+                                                                                
+                                                                                # Recalculer la progression globale et notifier si elle évolue
+                                                                                if total_pentest > 0:
+                                                                                    global_progress = int((total_progress_sum / total_pentest))
+                                                                                    if last_global_progress != global_progress:
+                                                                                        safe_emit(
+                                                                                            socketio,
+                                                                                            'pentest_analysis_progress',
+                                                                                            {
+                                                                                                'current': pentest_completed,
+                                                                                                'total': total_pentest,
+                                                                                                'progress': global_progress,
+                                                                                                'message': 'Analyse Pentest en cours...',
+                                                                                                'task_progress': global_progress
+                                                                                            },
+                                                                                            room=session_id
+                                                                                        )
+                                                                                        last_global_progress = global_progress
+                                                                                
+                                                                                if pentest_completed >= total_pentest:
+                                                                                    break
+                                                                                
+                                                                                threading.Event().wait(0.5)
+                                                                            
+                                                                            final_total = len(monitor_scraping.pentest_tasks_to_monitor)
+                                                                            safe_emit(
+                                                                                socketio,
+                                                                                'pentest_analysis_complete',
+                                                                                {
+                                                                                    'message': f'Analyses Pentest terminées pour {pentest_completed}/{final_total} entreprises.',
+                                                                                    'current': pentest_completed,
+                                                                                    'total': final_total
+                                                                                },
+                                                                                room=session_id
+                                                                            )
+                                                                        
+                                                                        threading.Thread(target=monitor_pentest_tasks_realtime, daemon=True).start()
                                                                 
                                                                 last_meta_scraping = meta_scraping
                                                         elif scraping_result.state == 'SUCCESS':
