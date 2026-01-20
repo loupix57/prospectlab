@@ -237,6 +237,30 @@ class DatabaseSchema(DatabaseBase):
                 FOREIGN KEY (entreprise_id) REFERENCES entreprises(id) ON DELETE CASCADE
             )
         ''')
+
+        # Migration: ajout du tracking_token si la colonne n'existe pas
+        try:
+            cursor.execute('ALTER TABLE emails_envoyes ADD COLUMN tracking_token TEXT')
+        except sqlite3.OperationalError:
+            pass
+
+        # Table des événements de tracking email (ouvertures, clics, etc.)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS email_tracking_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email_id INTEGER NOT NULL,
+                tracking_token TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_data TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                date_event TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (email_id) REFERENCES emails_envoyes(id) ON DELETE CASCADE
+            )
+        ''')
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_email_tracking_email_id ON email_tracking_events(email_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_email_tracking_token ON email_tracking_events(tracking_token)')
         
         # Table des analyses techniques
         cursor.execute('''

@@ -15,20 +15,23 @@ from config import (
     MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS,
     MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER
 )
+from services.email_tracker import EmailTracker
 
 
 class EmailSender:
-    def __init__(self):
+    def __init__(self, enable_tracking=False):
         self.mail_server = MAIL_SERVER
         self.mail_port = MAIL_PORT
         self.mail_use_tls = MAIL_USE_TLS
         self.mail_username = MAIL_USERNAME
         self.mail_password = MAIL_PASSWORD
         self.default_sender = MAIL_DEFAULT_SENDER
+        self.enable_tracking = enable_tracking
+        self.tracker = EmailTracker() if enable_tracking else None
     
-    def send_email(self, to, subject, body, recipient_name=None, html_body=None):
+    def send_email(self, to, subject, body, recipient_name=None, html_body=None, tracking_token=None):
         """
-        Envoie un email
+        Envoie un email (tracking optionnel)
         
         Args:
             to: Adresse email du destinataire
@@ -36,6 +39,7 @@ class EmailSender:
             body: Corps de l'email (texte)
             recipient_name: Nom du destinataire (optionnel)
             html_body: Corps HTML (optionnel)
+            tracking_token: Token de tracking unique (optionnel)
         
         Returns:
             dict: {'success': bool, 'message': str}
@@ -59,6 +63,15 @@ class EmailSender:
             
             # Ajouter le corps HTML si fourni
             if html_body:
+                # Tracking: liens + pixel (si activé)
+                if self.enable_tracking and tracking_token and self.tracker:
+                    html_body = self.tracker.process_email_content(html_body, tracking_token)
+                html_part = MIMEText(html_body, 'html', 'utf-8')
+                msg.attach(html_part)
+            elif self.enable_tracking and tracking_token and self.tracker:
+                # Si pas de HTML fourni, on convertit le texte pour pouvoir tracker
+                html_body = self.tracker.convert_text_to_html(body)
+                html_body = self.tracker.process_email_content(html_body, tracking_token)
                 html_part = MIMEText(html_body, 'html', 'utf-8')
                 msg.attach(html_part)
             

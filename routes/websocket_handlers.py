@@ -14,6 +14,7 @@ from tasks.scraping_tasks import scrape_emails_task, scrape_analysis_task
 from tasks.technical_analysis_tasks import technical_analysis_task
 from tasks.pentest_tasks import pentest_analysis_task
 from tasks.osint_tasks import osint_analysis_task
+from tasks.email_tasks import send_campagne_task
 import os
 import threading
 import logging
@@ -964,6 +965,86 @@ def register_websocket_handlers(socketio, app):
                 }, room=request.sid)
             except:
                 pass  # Si même l'émission échoue, on ignore
+
+    @socketio.on('monitor_campagne')
+    def handle_monitor_campagne(data):
+        """
+        Suit une campagne email en temps réel.
+
+        Args:
+            data (dict): {task_id: str, campagne_id: int}
+        """
+        task_id = (data or {}).get('task_id')
+        campagne_id = (data or {}).get('campagne_id')
+
+        # Capturer request.sid avant de lancer le thread
+        session_id = request.sid
+
+        if not task_id:
+            safe_emit(socketio, 'campagne_error', {'error': 'task_id requis'}, room=session_id)
+            return
+
+        def monitor_campagne_task():
+            """
+            Monitor une tâche de campagne et émet les événements de progression.
+            """
+            try:
+                task = celery.AsyncResult(task_id)
+                last_progress = -1
+
+                while not task.ready():
+                    current_state = task.state
+
+                    if current_state == 'FAILURE':
+                        error_info = task.info
+                        error_msg = str(error_info) if error_info else 'Erreur inconnue'
+                        safe_emit(socketio, 'campagne_error', {
+                            'campagne_id': campagne_id,
+                            'error': error_msg
+                        }, room=session_id)
+                        return
+
+                    if current_state == 'PROGRESS':
+                        meta = task.info or {}
+                        current_progress = meta.get('progress', 0)
+
+                        if current_progress != last_progress or meta.get('logs'):
+                            safe_emit(socketio, 'campagne_progress', {
+                                'campagne_id': campagne_id,
+                                'progress': current_progress,
+                                'message': meta.get('message', ''),
+                                'current': meta.get('current', 0),
+                                'total': meta.get('total', 0),
+                                'sent': meta.get('sent', 0),
+                                'failed': meta.get('failed', 0),
+                                'logs': meta.get('logs', [])
+                            }, room=session_id)
+                            last_progress = current_progress
+
+                    threading.Event().wait(0.5)
+
+                if task.ready():
+                    if task.successful():
+                        safe_emit(socketio, 'campagne_complete', {
+                            'campagne_id': campagne_id,
+                            'result': task.result
+                        }, room=session_id)
+                    else:
+                        error_info = task.info
+                        error_msg = str(error_info) if error_info else f'Etat inattendu: {task.state}'
+                        safe_emit(socketio, 'campagne_error', {
+                            'campagne_id': campagne_id,
+                            'error': error_msg
+                        }, room=session_id)
+            except Exception as e:
+                safe_emit(socketio, 'campagne_error', {
+                    'campagne_id': campagne_id,
+                    'error': f'Erreur lors du suivi: {str(e)}'
+                }, room=session_id)
+
+        thread = threading.Thread(target=monitor_campagne_task)
+        thread.daemon = True
+        thread.start()
     
     @socketio.on('stop_analysis')
     def handle_stop_analysis():

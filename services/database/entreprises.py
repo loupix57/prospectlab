@@ -17,6 +17,97 @@ class EntrepriseManager(DatabaseBase):
     def __init__(self, *args, **kwargs):
         """Initialise le module entreprises"""
         super().__init__(*args, **kwargs)
+
+    def get_entreprises_with_emails(self, limit=1000):
+        """
+        Récupère les entreprises avec leurs emails disponibles pour les campagnes.
+
+        On agrège:
+        - email principal (entreprises.email_principal)
+        - emails scrapés (scraper_emails)
+        - emails de personnes (scraper_people.email)
+
+        Args:
+            limit (int): Nombre maximum d'entreprises
+
+        Returns:
+            list[dict]: Liste des entreprises avec une clé `emails` (liste d'emails)
+        """
+        import sqlite3
+
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute(
+            '''
+            SELECT DISTINCT
+                e.id,
+                e.nom,
+                e.website,
+                e.email_principal,
+                e.secteur,
+                GROUP_CONCAT(DISTINCT se.email) as emails_scrapes,
+                GROUP_CONCAT(DISTINCT sp.name || '|' || COALESCE(sp.email, '')) as personnes
+            FROM entreprises e
+            LEFT JOIN scrapers s ON s.entreprise_id = e.id AND s.scraper_type = 'unified_scraper'
+            LEFT JOIN scraper_emails se ON se.scraper_id = s.id
+            LEFT JOIN scraper_people sp ON sp.scraper_id = s.id AND sp.email IS NOT NULL AND sp.email != ''
+            WHERE (e.email_principal IS NOT NULL AND e.email_principal != '')
+               OR se.email IS NOT NULL
+               OR sp.email IS NOT NULL
+            GROUP BY e.id
+            LIMIT ?
+            ''',
+            (limit,)
+        )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        entreprises = []
+        for row in rows:
+            entreprise = dict(row)
+
+            emails = []
+
+            if entreprise.get('email_principal'):
+                emails.append({
+                    'email': entreprise['email_principal'],
+                    'source': 'principal',
+                    'nom': None,
+                    'entreprise_id': entreprise['id']
+                })
+
+            if entreprise.get('emails_scrapes'):
+                for email in entreprise['emails_scrapes'].split(','):
+                    email = email.strip()
+                    if email and email not in [e['email'] for e in emails]:
+                        emails.append({
+                            'email': email,
+                            'source': 'scraped',
+                            'nom': None,
+                            'entreprise_id': entreprise['id']
+                        })
+
+            if entreprise.get('personnes'):
+                for personne_str in entreprise['personnes'].split(','):
+                    parts = personne_str.split('|')
+                    if len(parts) >= 2 and parts[1]:
+                        nom = parts[0].strip() if parts[0] else None
+                        email = parts[1].strip()
+                        if email and email not in [e['email'] for e in emails]:
+                            emails.append({
+                                'email': email,
+                                'source': 'personne',
+                                'nom': nom,
+                                'entreprise_id': entreprise['id']
+                            })
+
+            entreprise['emails'] = emails
+            entreprises.append(entreprise)
+
+        return entreprises
     
     def find_duplicate_entreprise(self, nom, website=None, address_1=None, address_2=None):
         """
