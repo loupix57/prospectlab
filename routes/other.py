@@ -85,24 +85,43 @@ def send_emails():
             results = []
             for recipient in recipients:
                 # Personnaliser le message
+                html_body = None
                 if template_id and template:
-                    message = template_manager.render_template(
+                    message, is_html = template_manager.render_template(
                         template_id,
                         recipient.get('nom', ''),
                         recipient.get('entreprise', ''),
-                        recipient.get('email', '')
+                        recipient.get('email', ''),
+                        recipient.get('entreprise_id')  # Passer l'ID si disponible
                     )
+                    if is_html:
+                        html_body = message
+                        # Pour HTML, créer une version texte simplifiée
+                        import re
+                        message = re.sub(r'<[^>]+>', '', message)  # Enlever les balises HTML
+                        message = re.sub(r'\s+', ' ', message).strip()  # Nettoyer les espaces
                 elif custom_message:
                     message = custom_message
                 else:
                     return jsonify({'error': 'Template ou message requis'}), 400
                 
+                # Personnaliser le sujet
+                subject_template = subject or (template.get('subject', 'Prospection') if template else 'Prospection')
+                try:
+                    personalized_subject = subject_template.format(
+                        nom=recipient.get('nom', ''),
+                        entreprise=recipient.get('entreprise', '')
+                    )
+                except:
+                    personalized_subject = subject_template
+                
                 # Envoyer l'email
                 result = email_sender.send_email(
                     to=recipient['email'],
-                    subject=subject or (template.get('subject', 'Prospection') if template else 'Prospection'),
+                    subject=personalized_subject,
                     body=message,
-                    recipient_name=recipient.get('nom', '')
+                    recipient_name=recipient.get('nom', ''),
+                    html_body=html_body
                 )
                 
                 results.append({
