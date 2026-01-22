@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from 'components/page_header.html' import page_header %}
+{% from 'components/stats_grid.html' import stats_grid %}
+
+{% block title %}Dashboard - ProspectLab{% endblock %}
+
+{% block content %}
+{{ page_header('Dashboard', 'Vue d\'ensemble de vos analyses et prospects') }}
+
+{{ stats_grid([
+    {'id': 'stat-total-analyses', 'label': 'Total analyses'},
+    {'id': 'stat-total-entreprises', 'label': 'Entreprises analysées'},
+    {'id': 'stat-prospects', 'label': 'Prospects intéressants'},
+    {'id': 'stat-favoris', 'label': 'Favoris'}
+]) }}
+
+<div class="charts-section">
+    <div class="chart-card">
+        <h3>Répartition par secteur</h3>
+        <canvas id="chart-secteurs"></canvas>
+    </div>
+    
+    <div class="chart-card">
+        <h3>Opportunités détectées</h3>
+        <canvas id="chart-opportunites"></canvas>
+    </div>
+</div>
+
+<div class="recent-analyses">
+    <h2>Analyses récentes</h2>
+    <div id="analyses-list" class="analyses-list">
+        <p>Chargement...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}
+

@@ -1,0 +1,27 @@
+<!-- Indicateur de connexion WebSocket -->
+<div id="ws-indicator" style="position: fixed; bottom: 20px; right: 20px; padding: 10px 15px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; z-index: 1000; display: none;">
+    <i id="ws-status" class="fas fa-circle"></i> <span id="ws-text">Connexion...</span>
+</div>
+
+<script>
+// Indicateur de statut WebSocket
+document.addEventListener('websocket:connected', function() {
+    const indicator = document.getElementById('ws-indicator');
+    const status = document.getElementById('ws-status');
+    const text = document.getElementById('ws-text');
+    indicator.style.display = 'block';
+    indicator.style.background = '#27ae60';
+    status.className = 'fas fa-circle';
+    text.textContent = 'Connecté';
+});
+
+document.addEventListener('websocket:disconnected', function() {
+    const indicator = document.getElementById('ws-indicator');
+    const status = document.getElementById('ws-status');
+    const text = document.getElementById('ws-text');
+    indicator.style.background = '#e74c3c';
+    status.className = 'fas fa-circle';
+    text.textContent = 'Déconnecté';
+});
+</script>
+

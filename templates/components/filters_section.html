@@ -1,0 +1,40 @@
+{% macro filters_section(filters, actions=None) %}
+<div class="filters-section">
+    <div class="filters-card">
+        {% if filters.title %}
+        <h3>{{ filters.title }}</h3>
+        {% endif %}
+        
+        <div class="filters-grid">
+            {% for filter in filters.items %}
+            <div class="filter-group">
+                <label for="{{ filter.id }}">{{ filter.label }}</label>
+                {% if filter.type == 'select' %}
+                <select id="{{ filter.id }}" class="form-select">
+                    {% for option in filter.options %}
+                    <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                {% elif filter.type == 'text' %}
+                <input type="text" id="{{ filter.id }}" placeholder="{{ filter.placeholder or '' }}" class="form-input">
+                {% elif filter.type == 'checkbox' %}
+                <label>
+                    <input type="checkbox" id="{{ filter.id }}" class="form-checkbox">
+                    {{ filter.label }}
+                </label>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if actions %}
+        <div class="filters-actions">
+            {% for action in actions %}
+            <button id="{{ action.id }}" class="btn btn-{{ action.type or 'primary' }}">{{ action.label }}</button>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+

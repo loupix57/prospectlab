@@ -1,0 +1,9 @@
+{% macro progress_section(id, message_id=None) %}
+<div id="{{ id }}" style="display: none;" class="progress-section">
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="{{ id }}-bar" style="width: 0%"></div>
+    </div>
+    <p id="{{ message_id or (id + '-message') }}" class="progress-message">Initialisation...</p>
+</div>
+{% endmacro %}
+

@@ -1,0 +1,20 @@
+{% macro modal(id, title, size='normal', footer=None) %}
+<div id="{{ id }}" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-{{ size }}">
+        <div class="modal-header">
+            <h2 id="{{ id }}-title">{{ title }}</h2>
+            <button class="modal-close" id="{{ id }}-close" aria-label="Fermer"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="{{ id }}-body">
+            <div class="loading">Chargement...</div>
+        </div>
+        {% if footer %}
+        <div class="modal-footer" id="{{ id }}-footer">
+            {{ footer }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+

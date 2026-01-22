@@ -10,6 +10,7 @@ import pandas as pd
 from services.entreprise_analyzer import EntrepriseAnalyzer
 from utils.helpers import allowed_file, get_file_path
 from config import UPLOAD_FOLDER
+from utils.template_helpers import render_page
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -58,7 +59,7 @@ def upload_file():
                 preview = df.head(10).to_dict('records')
                 columns = list(df.columns)
                 
-                return render_template('preview.html', 
+                return render_page('preview.html', 
                                      filename=filename,
                                      preview=preview,
                                      columns=columns,
@@ -68,7 +69,7 @@ def upload_file():
                 flash(f'Erreur lors de la lecture du fichier: {str(e)}', 'error')
                 return redirect(request.url)
     
-    return render_template('upload.html')
+    return render_page('upload.html')
 
 
 @upload_bp.route('/preview/<filename>')
@@ -113,7 +114,7 @@ def preview_file(filename):
         preview = df.head(10).to_dict('records')
         columns = list(df.columns)
         
-        return render_template('preview.html', 
+        return render_page('preview.html', 
                              filename=filename,
                              preview=preview,
                              columns=columns,

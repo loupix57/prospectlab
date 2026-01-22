@@ -9,6 +9,7 @@ import os
 from services.email_sender import EmailSender
 from services.template_manager import TemplateManager
 from config import EXPORT_FOLDER
+from utils.template_helpers import render_page
 
 other_bp = Blueprint('other', __name__)
 
@@ -24,7 +25,7 @@ def analyse_scraping_page():
     Returns:
         str: Template HTML de la page d'analyse/scraping
     """
-    return render_template('analyse_scraping.html')
+    return render_page('analyse_scraping.html')
 
 
 @other_bp.route('/scrape-emails', methods=['GET', 'POST'])
@@ -45,7 +46,7 @@ def scrape_emails():
             'use_websocket': True
         }), 200
     
-    return render_template('scrape_emails.html')
+    return render_page('scrape_emails.html')
 
 
 @other_bp.route('/send-emails', methods=['GET', 'POST'])
@@ -141,7 +142,7 @@ def send_emails():
     
     # GET: Afficher le formulaire
     templates = template_manager.list_templates()
-    return render_template('send_emails.html', templates=templates)
+    return render_page('send_emails.html', templates=templates)
 
 
 @other_bp.route('/templates', methods=['GET', 'POST'])
@@ -184,7 +185,7 @@ def manage_templates():
     
     # GET: Liste des templates
     templates = template_manager.list_templates()
-    return render_template('templates.html', templates=templates)
+    return render_page('templates.html', templates=templates)
 
 
 @other_bp.route('/download/<filename>')

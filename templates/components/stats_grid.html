@@ -1,0 +1,11 @@
+{% macro stats_grid(stats) %}
+<div class="stats-grid">
+    {% for stat in stats %}
+    <div class="stat-card">
+        <h3>{{ stat.label }}</h3>
+        <p class="stat-number" id="{{ stat.id }}">-</p>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+

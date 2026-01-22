@@ -1,116 +1,28 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='favicon/apple-icon-57x57.png') }}">
-    <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='favicon/apple-icon-60x60.png') }}">
-    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='favicon/apple-icon-72x72.png') }}">
-    <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='favicon/apple-icon-76x76.png') }}">
-    <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='favicon/apple-icon-114x114.png') }}">
-    <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='favicon/apple-icon-120x120.png') }}">
-    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='favicon/apple-icon-144x144.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='favicon/apple-icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon/apple-icon-180x180.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192"  href="{{ url_for('static', filename='favicon/android-icon-192x192.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='favicon/favicon-96x96.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon/favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='favicon/manifest.json') }}">
-    <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="{{ url_for('static', filename='favicon/ms-icon-144x144.png') }}">
-    <meta name="theme-color" content="#ffffff">
+    {% include 'partials/head_meta.html' %}
     <title>{% block title %}ProspectLab{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <h1 class="logo"><a href="{{ url_for('main.dashboard') }}" style="color: white; text-decoration: none;">ProspectLab</a></h1>
-            <ul class="nav-links">
-                <li><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
-                <li class="nav-dropdown">
-                    <a href="#" class="dropdown-toggle">Entreprises <span class="dropdown-arrow">▼</span></a>
-                    <ul class="dropdown-menu">
-                        <li><a href="{{ url_for('main.liste_entreprises') }}">Liste des entreprises</a></li>
-                        <li><a href="{{ url_for('upload.upload_file') }}">Importer Excel</a></li>
-                        <li><a href="{{ url_for('main.carte_entreprises') }}">Carte des entreprises</a></li>
-                    </ul>
-                </li>
-                <li class="nav-dropdown">
-                    <a href="#" class="dropdown-toggle">Analyses <span class="dropdown-arrow">▼</span></a>
-                    <ul class="dropdown-menu">
-                        <li><a href="{{ url_for('main.liste_analyses_techniques') }}">Analyses techniques</a></li>
-                        <li><a href="{{ url_for('main.liste_analyses_osint') }}">Analyses OSINT</a></li>
-                        <li><a href="{{ url_for('main.liste_analyses_pentest') }}">Analyses Pentest</a></li>
-                        <li><a href="{{ url_for('other.analyse_scraping_page') }}">Scraping Web</a></li>
-                    </ul>
-                </li>
-                <li class="nav-dropdown">
-                    <a href="#" class="dropdown-toggle">Emails <span class="dropdown-arrow">▼</span></a>
-                    <ul class="dropdown-menu">
-                        <li><a href="{{ url_for('other.send_emails') }}">Envoyer Emails</a></li>
-                        <li><a href="{{ url_for('other.manage_templates') }}">Modèles</a></li>
-                    </ul>
-                </li>
-            </ul>
-        </div>
-    </nav>
+    {% include 'partials/navigation.html' %}
 
     <main class="main-content">
         <div class="container">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages">
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% include 'partials/flash_messages.html' %}
 
             {% block content %}{% endblock %}
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2025 ProspectLab - Outil de prospection</p>
-        </div>
-    </footer>
+    {% include 'partials/footer.html' %}
 
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/websocket.js') }}" defer></script>
+    {% include 'partials/base_scripts.html' %}
     {% block extra_js %}{% endblock %}
     
-    <!-- Indicateur de connexion WebSocket -->
-    <div id="ws-indicator" style="position: fixed; bottom: 20px; right: 20px; padding: 10px 15px; background: #2c3e50; color: white; border-radius: 4px; font-size: 12px; z-index: 1000; display: none;">
-        <i id="ws-status" class="fas fa-circle"></i> <span id="ws-text">Connexion...</span>
-    </div>
-    
-    <script>
-    // Indicateur de statut WebSocket
-    document.addEventListener('websocket:connected', function() {
-        const indicator = document.getElementById('ws-indicator');
-        const status = document.getElementById('ws-status');
-        const text = document.getElementById('ws-text');
-        indicator.style.display = 'block';
-        indicator.style.background = '#27ae60';
-        status.className = 'fas fa-circle';
-        text.textContent = 'Connecté';
-    });
-    
-    document.addEventListener('websocket:disconnected', function() {
-        const indicator = document.getElementById('ws-indicator');
-        const status = document.getElementById('ws-status');
-        const text = document.getElementById('ws-text');
-        indicator.style.background = '#e74c3c';
-        status.className = 'fas fa-circle';
-        text.textContent = 'Déconnecté';
-    });
-    </script>
+    {% include 'partials/websocket_indicator.html' %}
 </body>
 </html>

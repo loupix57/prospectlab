@@ -1,0 +1,14 @@
+{% macro page_header(title, description=None, warning=None) %}
+<div class="page-header">
+    <h1>{{ title }}</h1>
+    {% if description %}
+    <p>{{ description }}</p>
+    {% endif %}
+    {% if warning %}
+    <div class="warning-box" style="background: #fff3cd; border: 1px solid #ffc107; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
+        <strong><i class="fas fa-exclamation-triangle"></i> {{ warning.title }} :</strong> {{ warning.message }}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+

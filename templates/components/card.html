@@ -1,0 +1,20 @@
+{% macro card(header=None, body=None, footer=None, class=None) %}
+<div class="card{% if class %} {{ class }}{% endif %}">
+    {% if header %}
+    <div class="card-header">
+        {{ header }}
+    </div>
+    {% endif %}
+    {% if body %}
+    <div class="card-body">
+        {{ body }}
+    </div>
+    {% endif %}
+    {% if footer %}
+    <div class="card-footer">
+        {{ footer }}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+

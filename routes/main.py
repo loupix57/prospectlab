@@ -4,7 +4,8 @@ Blueprint pour les routes principales de l'application
 Contient toutes les routes qui affichent des pages HTML.
 """
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, redirect, url_for
+from utils.template_helpers import render_page
 
 main_bp = Blueprint('main', __name__)
 
@@ -28,7 +29,7 @@ def dashboard():
     Returns:
         str: Template HTML du dashboard
     """
-    return render_template('dashboard.html')
+    return render_page('dashboard.html')
 
 
 @main_bp.route('/entreprises')
@@ -39,7 +40,7 @@ def liste_entreprises():
     Returns:
         str: Template HTML de la liste des entreprises
     """
-    return render_template('entreprises.html')
+    return render_page('entreprises.html')
 
 
 @main_bp.route('/entreprise/<int:entreprise_id>')
@@ -53,7 +54,7 @@ def entreprise_detail(entreprise_id):
     Returns:
         str: Template HTML du détail de l'entreprise
     """
-    return render_template('entreprise_detail.html', entreprise_id=entreprise_id)
+    return render_page('entreprise_detail.html', entreprise_id=entreprise_id)
 
 
 @main_bp.route('/analyses-techniques')
@@ -64,7 +65,7 @@ def liste_analyses_techniques():
     Returns:
         str: Template HTML de la liste des analyses techniques
     """
-    return render_template('analyses_techniques.html')
+    return render_page('analyses_techniques.html')
 
 
 @main_bp.route('/analyses-osint')
@@ -75,7 +76,7 @@ def liste_analyses_osint():
     Returns:
         str: Template HTML de la liste des analyses OSINT
     """
-    return render_template('analyses_osint.html')
+    return render_page('analyses_osint.html')
 
 
 @main_bp.route('/analyses-pentest')
@@ -86,7 +87,7 @@ def liste_analyses_pentest():
     Returns:
         str: Template HTML de la liste des analyses Pentest
     """
-    return render_template('analyses_pentest.html')
+    return render_page('analyses_pentest.html')
 
 
 @main_bp.route('/carte-entreprises')
@@ -97,7 +98,7 @@ def carte_entreprises():
     Returns:
         str: Template HTML de la carte des entreprises
     """
-    return render_template('carte_entreprises.html')
+    return render_page('carte_entreprises.html')
 
 
 @main_bp.route('/analyse-technique/<int:analysis_id>')
@@ -111,5 +112,5 @@ def analyse_technique_detail(analysis_id):
     Returns:
         str: Template HTML du détail de l'analyse technique
     """
-    return render_template('analyse_technique_detail.html', analysis_id=analysis_id)
+    return render_page('analyse_technique_detail.html', analysis_id=analysis_id)
 
