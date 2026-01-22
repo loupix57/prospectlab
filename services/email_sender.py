@@ -26,7 +26,7 @@ class EmailSender:
         self.mail_password = MAIL_PASSWORD
         self.default_sender = MAIL_DEFAULT_SENDER
     
-    def send_email(self, to, subject, body, recipient_name=None, html_body=None):
+    def send_email(self, to, subject, body, recipient_name=None, html_body=None, tracking_token=None):
         """
         Envoie un email
         
@@ -36,6 +36,7 @@ class EmailSender:
             body: Corps de l'email (texte)
             recipient_name: Nom du destinataire (optionnel)
             html_body: Corps HTML (optionnel)
+            tracking_token: Token de tracking (optionnel, déjà injecté dans html_body)
         
         Returns:
             dict: {'success': bool, 'message': str}

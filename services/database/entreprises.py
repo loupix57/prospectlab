@@ -5,6 +5,7 @@ Contient les méthodes pour la gestion des entreprises et leurs données OpenGra
 
 import json
 import math
+import sqlite3
 from urllib.parse import urljoin
 from .base import DatabaseBase
 
@@ -768,3 +769,63 @@ class EntrepriseManager(DatabaseBase):
         }
         
         return stats
+
+    def get_entreprises_with_emails(self):
+        """
+        Récupère toutes les entreprises avec leurs emails disponibles pour les campagnes.
+
+        Returns:
+            list[dict]: Liste des entreprises avec leurs emails (depuis scraper_emails)
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Récupérer les entreprises avec leurs emails depuis scraper_emails
+        cursor.execute('''
+            SELECT DISTINCT
+                e.id,
+                e.nom,
+                e.secteur,
+                se.email,
+                se.name_info as email_nom,
+                se.page_url as source,
+                se.entreprise_id
+            FROM entreprises e
+            INNER JOIN scraper_emails se ON e.id = se.entreprise_id
+            WHERE se.email IS NOT NULL AND se.email != ''
+            ORDER BY e.nom, se.email
+        ''')
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Grouper par entreprise
+        entreprises_dict = {}
+        for row in rows:
+            entreprise_id = row['id']
+            if entreprise_id not in entreprises_dict:
+                entreprises_dict[entreprise_id] = {
+                    'id': entreprise_id,
+                    'nom': row['nom'],
+                    'secteur': row['secteur'],
+                    'emails': []
+                }
+
+            # Utiliser page_url comme source si disponible, sinon 'scraper'
+            source = row['source'] if row['source'] else 'scraper'
+            if source == 'scraper' and row['source']:
+                source = row['source']
+            
+            # Formater le nom depuis name_info (JSON)
+            from utils.name_formatter import format_name
+            email_nom = format_name(row['email_nom'])
+
+            entreprises_dict[entreprise_id]['emails'].append({
+                'email': row['email'],
+                'nom': email_nom,
+                'source': source,
+                'entreprise_id': row['entreprise_id']
+            })
+
+        return list(entreprises_dict.values())

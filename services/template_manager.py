@@ -301,14 +301,15 @@ danielcraft.fr""",
                 if vulnerabilities:
                     data['vulnerabilities_count'] = len(vulnerabilities) if isinstance(vulnerabilities, list) else 0
             
-            # Données de scraping
-            scraper = scraper_manager.get_latest_scraper(entreprise_id)
-            if scraper:
+            # Données de scraping (prendre le scraper le plus récent)
+            scrapers = scraper_manager.get_scrapers_by_entreprise(entreprise_id)
+            if scrapers and len(scrapers) > 0:
+                scraper = scrapers[0]  # Le premier est le plus récent (trié par date DESC)
                 data.update({
                     'total_emails': scraper.get('total_emails', 0),
                     'total_people': scraper.get('total_people', 0),
                     'total_phones': scraper.get('total_phones', 0),
-                    'total_social': scraper.get('total_social_platforms', 0),
+                    'total_social': scraper.get('total_social_profiles', []),
                     'total_technologies': scraper.get('total_technologies', 0),
                 })
             
@@ -345,9 +346,13 @@ danielcraft.fr""",
         if entreprise_id:
             extended_data = self._get_entreprise_extended_data(entreprise_id)
         
+        # Formater le nom si c'est du JSON
+        from utils.name_formatter import format_name
+        formatted_nom = format_name(nom) if nom else 'Monsieur/Madame'
+        
         # Préparer toutes les variables
         variables = {
-            'nom': nom or 'Monsieur/Madame',
+            'nom': formatted_nom,
             'entreprise': entreprise or 'votre entreprise',
             'email': email or '',
             **extended_data

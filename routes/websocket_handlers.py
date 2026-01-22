@@ -1433,3 +1433,94 @@ def register_websocket_handlers(socketio, app):
             except:
                 pass
 
+    @socketio.on('monitor_campagne')
+    def handle_monitor_campagne(data):
+        """
+        Démarre le monitoring d'une campagne email en temps réel.
+
+        Args:
+            data (dict): {task_id, campagne_id}
+        """
+        try:
+            task_id = data.get('task_id')
+            campagne_id = data.get('campagne_id')
+            session_id = request.sid
+
+            if not task_id:
+                safe_emit(socketio, 'campagne_error', {
+                    'campagne_id': campagne_id,
+                    'error': 'Task ID manquant'
+                }, room=session_id)
+                return
+
+            def monitor_task():
+                try:
+                    task = celery.AsyncResult(task_id)
+                    while True:
+                        try:
+                            current_state = task.state
+                            task_result = task.info
+
+                            if current_state == 'PROGRESS':
+                                meta = task_result if isinstance(task_result, dict) else {}
+                                safe_emit(socketio, 'campagne_progress', {
+                                    'campagne_id': campagne_id,
+                                    'progress': meta.get('progress', 0),
+                                    'current': meta.get('current', 0),
+                                    'total': meta.get('total', 0),
+                                    'sent': meta.get('sent', 0),
+                                    'failed': meta.get('failed', 0),
+                                    'message': meta.get('message', 'Envoi en cours...')
+                                }, room=session_id)
+                            elif current_state == 'SUCCESS':
+                                result = task_result if isinstance(task_result, dict) else {}
+                                safe_emit(socketio, 'campagne_complete', {
+                                    'campagne_id': campagne_id,
+                                    'result': result
+                                }, room=session_id)
+                                with tasks_lock:
+                                    if session_id in active_tasks:
+                                        del active_tasks[session_id]
+                                break
+                            elif current_state == 'FAILURE':
+                                error_msg = str(task_result) if task_result else 'Erreur inconnue'
+                                safe_emit(socketio, 'campagne_error', {
+                                    'campagne_id': campagne_id,
+                                    'error': error_msg
+                                }, room=session_id)
+                                with tasks_lock:
+                                    if session_id in active_tasks:
+                                        del active_tasks[session_id]
+                                break
+
+                            threading.Event().wait(1.0)
+                        except Exception as e:
+                            safe_emit(socketio, 'campagne_error', {
+                                'campagne_id': campagne_id,
+                                'error': f'Erreur lors du suivi: {str(e)}'
+                            }, room=session_id)
+                            with tasks_lock:
+                                if session_id in active_tasks:
+                                    del active_tasks[session_id]
+                            break
+                except Exception as e:
+                    safe_emit(socketio, 'campagne_error', {
+                        'campagne_id': campagne_id,
+                        'error': f'Erreur dans le monitoring: {str(e)}'
+                    }, room=session_id)
+
+            with tasks_lock:
+                active_tasks[session_id] = {'type': 'campagne', 'task_id': task_id}
+
+            thread = threading.Thread(target=monitor_task)
+            thread.daemon = True
+            thread.start()
+        except Exception as e:
+            try:
+                safe_emit(socketio, 'campagne_error', {
+                    'campagne_id': data.get('campagne_id'),
+                    'error': f'Erreur lors du démarrage du monitoring: {str(e)}'
+                }, room=request.sid)
+            except:
+                pass
+

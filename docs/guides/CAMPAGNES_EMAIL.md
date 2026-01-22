@@ -1,0 +1,177 @@
+# Guide des Campagnes Email
+
+## Vue d'ensemble
+
+Le système de campagnes email permet d'envoyer des emails en masse à des entreprises avec suivi en temps réel, tracking des ouvertures et clics, et personnalisation via templates HTML.
+
+## Fonctionnalités principales
+
+### 1. Création de campagne
+
+- **Nom automatique** : Le nom de la campagne est généré automatiquement avec un format concis et original :
+  - Format : `📧 JJ.MM HHhMM - CodeTemplate (NbDestinataires)`
+  - Exemple : `📧 22.01 15h30 - Mod (2)`
+  - Le nom inclut un emoji aléatoire, la date/heure, un code du template et le nombre de destinataires
+
+- **Templates HTML** : Support de templates HTML professionnels avec :
+  - Données dynamiques (nom, entreprise, données techniques, OSINT, pentest, scraping)
+  - Blocs conditionnels (`{#if_xxx}`)
+  - Tracking automatique des liens vers `danielcraft.fr`
+  - Design responsive et compatible clients email
+
+- **Sélection des destinataires** : 
+  - Sélection par entreprise (tous les emails d'une entreprise)
+  - Sélection individuelle d'emails
+  - Affichage du nom du contact formaté depuis JSON
+
+### 2. Tracking des emails
+
+#### Tracking des ouvertures
+- Pixel invisible (1x1 PNG transparent) injecté dans chaque email HTML
+- Route : `/track/pixel/<tracking_token>`
+- Enregistrement de l'IP, User-Agent et timestamp
+
+#### Tracking des clics
+- Tous les liens sont redirigés via `/track/click/<tracking_token>?url=<url_originale>`
+- Enregistrement du lien cliqué, IP, User-Agent et timestamp
+
+#### Configuration du tracking
+- Variable d'environnement `BASE_URL` dans `.env` :
+  ```env
+  BASE_URL=https://votre-domaine.com
+  ```
+  - En production : URL publique accessible
+  - En développement : Utiliser ngrok ou IP publique
+  - **Important** : Ne pas utiliser `localhost:5000` car inaccessible depuis l'extérieur
+
+### 3. Suivi en temps réel
+
+- **WebSocket** : Progression en temps réel via Socket.IO
+- **Barre de progression** : Affichage du pourcentage d'envoi
+- **Statistiques** : Destinataires, envoyés, réussis, échecs
+- **Logs** : Derniers événements affichés dans l'interface
+
+### 4. Templates d'email
+
+#### Templates HTML disponibles
+- Modernisation technique
+- Optimisation performance
+- Sécurité et conformité
+- Présence digitale
+- Audit complet
+- Site vitrine
+- Application sur mesure
+- Automatisation processus
+
+#### Caractéristiques
+- **Pas de prix** : Les templates mettent en avant les performances et bénéfices
+- **Lien vers danielcraft.fr** : Bouton "Découvrir mes services et tarifs" (tracké automatiquement)
+- **Données dynamiques** : Injection automatique des données d'entreprise (technique, OSINT, pentest, scraping)
+- **Icônes centrées** : Utilisation de `text-align: center` et `line-height` pour compatibilité email
+
+## Architecture technique
+
+### Composants principaux
+
+#### Backend
+- **`services/database/campagnes.py`** : Gestion des campagnes, emails envoyés et événements de tracking
+- **`services/email_tracker.py`** : Injection du pixel de tracking et modification des liens
+- **`services/template_manager.py`** : Rendu des templates avec données dynamiques
+- **`services/email_sender.py`** : Envoi des emails via SMTP
+- **`tasks/email_tasks.py`** : Tâche Celery pour l'envoi asynchrone
+- **`routes/other.py`** : Routes API et tracking
+
+#### Frontend
+- **`static/js/campagnes.js`** : Gestion de l'interface, WebSocket, génération de noms
+- **`static/css/campagnes.css`** : Styles pour les cartes de campagne, barre de progression
+- **`templates/campagnes.html`** : Interface de gestion des campagnes
+
+### Base de données
+
+#### Tables
+- **`campagnes_email`** : Métadonnées des campagnes
+- **`emails_envoyes`** : Détails de chaque email envoyé (avec `tracking_token`)
+- **`email_tracking_events`** : Événements de tracking (open, click)
+
+### Formatage des noms
+
+Le système utilise `utils/name_formatter.py` pour formater les noms de contacts depuis :
+- Chaînes JSON : `{"first_name": "John", "last_name": "Doe"}`
+- Dictionnaires Python
+- Chaînes simples
+
+## Utilisation
+
+### Créer une campagne
+
+1. Cliquer sur "+ Nouvelle campagne"
+2. Sélectionner un template HTML (optionnel)
+3. Remplir le sujet de l'email (peut contenir `{entreprise}`)
+4. Sélectionner les destinataires (entreprises ou emails individuels)
+5. Cliquer sur "Lancer la campagne"
+
+### Suivre une campagne
+
+- La progression s'affiche en temps réel dans la carte de campagne
+- Les statistiques sont mises à jour automatiquement
+- Les logs montrent les derniers événements
+
+### Consulter les résultats
+
+- Cliquer sur "Voir détails" pour voir :
+  - Liste des emails envoyés
+  - Statut de chaque email (sent, failed)
+  - Statistiques de tracking (ouvertures, clics)
+
+## Configuration
+
+### Variables d'environnement
+
+```env
+# Tracking des emails (IMPORTANT)
+BASE_URL=https://votre-domaine.com
+
+# Configuration SMTP
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USERNAME=votre-email@gmail.com
+MAIL_PASSWORD=votre-mot-de-passe-app
+MAIL_DEFAULT_SENDER="Votre Nom <votre-email@gmail.com>"
+```
+
+### Logs
+
+Les logs des campagnes sont enregistrés dans `logs/email_tasks.log` avec :
+- Démarrage de campagne
+- Envoi de chaque email
+- Erreurs éventuelles
+
+## Dépannage
+
+### Le tracking ne fonctionne pas
+
+1. Vérifier que `BASE_URL` est configuré avec une URL publique (pas `localhost`)
+2. Vérifier que la table `email_tracking_events` existe
+3. Vérifier les logs dans `logs/email_tasks.log`
+4. Vérifier que le pixel est bien injecté dans les emails HTML
+
+### Le texte sous la barre de progression ne s'affiche pas
+
+- Le problème a été corrigé avec des styles inline et `appendChild`
+- Vérifier que le CSS `.progress-text` est bien chargé
+- Vérifier la console JavaScript pour d'éventuelles erreurs
+
+### Erreur `get_latest_scraper`
+
+- Corrigé : Utilisation de `get_scrapers_by_entreprise()` et prise du premier élément
+- Vérifier que `services/database/scrapers.py` contient bien cette méthode
+
+## Améliorations futures
+
+- [ ] Statistiques avancées (taux d'ouverture, taux de clic)
+- [ ] A/B testing de templates
+- [ ] Planification de campagnes
+- [ ] Templates personnalisables par l'utilisateur
+- [ ] Export des résultats en CSV/Excel
+
