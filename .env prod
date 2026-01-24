@@ -5,7 +5,7 @@
 # Sécurité
 # ============================================
 # Clé secrète pour Flask (générer avec: python -c "import secrets; print(secrets.token_hex(32))")
-SECRET_KEY=dev-secret-key-change-in-production
+SECRET_KEY=my-secret-key-for-prod
 
 # ============================================
 # Base de données
@@ -17,7 +17,7 @@ SECRET_KEY=dev-secret-key-change-in-production
 # Pour PostgreSQL (production) : URL de connexion complète
 # Format: postgresql://user:password@host:port/database
 # Si DATABASE_URL est défini, il prend la priorité sur DATABASE_PATH
-# DATABASE_URL=postgresql://prospectlab:password@localhost:5432/prospectlab
+DATABASE_URL=postgresql://prospectlab:G96j2ufl0nK42jFstwioUwRSC@localhost:5432/prospectlab
 
 # ============================================
 # Configuration Redis/Celery
@@ -25,13 +25,11 @@ SECRET_KEY=dev-secret-key-change-in-production
 # URL du broker Redis pour Celery (nécessaire pour les tâches asynchrones)
 # Format: redis://[host]:[port]/[database]
 # Par défaut: redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/1
 # URL du backend de résultats Redis pour Celery
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
 # Nombre de workers Celery en parallèle (4 en dev, 6 en prod recommandé)
-CELERY_WORKERS=4
-# Note: Pour démarrer Redis avec Docker, utilisez: docker-compose up -d
-# Ou utilisez le script: .\start-redis.ps1
+CELERY_WORKERS=6
 
 # ============================================
 # Configuration Email (SMTP)
@@ -39,9 +37,9 @@ CELERY_WORKERS=4
 MAIL_SERVER=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USE_TLS=True
-MAIL_USERNAME=votre-email@gmail.com
-MAIL_PASSWORD=votre-mot-de-passe-app
-MAIL_DEFAULT_SENDER="Votre Nom <votre-email@gmail.com>"
+MAIL_USERNAME=likedev5788@gmail.com
+MAIL_PASSWORD=nujo wozp tjvf qmug
+MAIL_DEFAULT_SENDER="Daniel Craft <likedev5788@gmail.com>"
 
 # URL de base pour le tracking des emails (IMPORTANT pour le tracking des ouvertures)
 # Doit être accessible publiquement depuis Internet
@@ -49,7 +47,7 @@ MAIL_DEFAULT_SENDER="Votre Nom <votre-email@gmail.com>"
 # - En production: https://votre-domaine.com
 # - En développement local: http://votre-ip-publique:5000
 # - Avec ngrok: https://votre-tunnel.ngrok.io
-BASE_URL=http://localhost:5000
+BASE_URL=http://prospectlab.danielcraft.fr:5000
 
 # ============================================
 # API Sirene (data.gouv.fr)
@@ -65,23 +63,23 @@ SIRENE_API_URL=https://recherche-entreprises.api.gouv.fr/search
 # Shodan API - Recherche d'informations sur les infrastructures
 # Obtenez votre clé sur: https://account.shodan.io/register
 # Gratuit jusqu'à 100 requêtes/mois
-SHODAN_API_KEY=votre-cle-api-shodan
+SHODAN_API_KEY=pzyeQGVYEEDpnCCuPoTBNZdNY762CDOu
 
 # Censys API - Recherche d'informations sur les certificats et infrastructures
 # Obtenez votre clé sur: https://search.censys.io/account/api
 # Gratuit jusqu'à 250 requêtes/mois
-CENSYS_API_ID=votre-censys-api-id
-CENSYS_API_SECRET=votre-censys-api-secret
+CENSYS_API_ID=2trzsWNb
+CENSYS_API_SECRET=censys_2trzsWNb_KVtCJzGt34ggt7zNtU4PESMw
 
 # Hunter.io API - Recherche d'emails professionnels
 # Obtenez votre clé sur: https://hunter.io/api-keys
 # Plan gratuit: 25 requêtes/mois
-HUNTER_API_KEY=votre-cle-api-hunter
+HUNTER_API_KEY=89eb23bcfa7519e1c64c5e81db56bd70f5e57ec7
 
 # BuiltWith API - Détection de technologies web
 # Obtenez votre clé sur: https://api.builtwith.com/
 # Plan gratuit: 100 requêtes/mois
-BUILTWITH_API_KEY=votre-cle-api-builtwith
+BUILTWITH_API_KEY=60c572a0-5ae5-4d6f-a62b-c0e1ccc40582
 
 # Have I Been Pwned API - Vérification de fuites de données
 # Obtenez votre clé sur: https://haveibeenpwned.com/API/Key
@@ -92,9 +90,9 @@ HIBP_API_KEY=votre-cle-api-hibp
 # Configuration WSL (pour outils OSINT/Pentest)
 # ============================================
 # Distribution WSL à utiliser
-WSL_DISTRO=kali-linux
+# WSL_DISTRO=kali-linux
 # Utilisateur WSL
-WSL_USER=loupix
+# WSL_USER=loupix
 
 # ============================================
 # Timeouts pour les outils externes
