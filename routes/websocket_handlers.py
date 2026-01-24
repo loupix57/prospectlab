@@ -49,9 +49,10 @@ def register_websocket_handlers(socketio, app):
         """
         try:
             filename = data.get('filename')
-            # Valeurs optimisées pour Celery avec --pool=threads --concurrency=4
+            # Valeurs optimisées pour Celery avec --pool=threads --concurrency dynamique
             # Celery gère déjà la concurrence, pas besoin de délai artificiel élevé
-            max_workers = int(data.get('max_workers', 4))  # Optimisé pour Celery concurrency=4
+            from config import CELERY_WORKERS
+            max_workers = int(data.get('max_workers', CELERY_WORKERS))  # Utilise la valeur depuis la config
             delay = float(data.get('delay', 0.1))         # Délai minimal, Celery gère la concurrence
             enable_osint = data.get('enable_osint', False)
             session_id = request.sid
@@ -153,6 +154,10 @@ def register_websocket_handlers(socketio, app):
                                 result = task_result.result
                                 total_processed = result.get('total_processed', 0) if result else 0
                                 analysis_id = result.get('analysis_id') if result else None
+                                
+                                logger.info(f'Analyse terminée: total_processed={total_processed}, analysis_id={analysis_id}')
+                                logger.info(f'Résultat complet de la tâche: {result}')
+                                
                                 safe_emit(
                                     socketio,
                                     'analysis_complete',
@@ -168,7 +173,11 @@ def register_websocket_handlers(socketio, app):
 
                                 # Lancer automatiquement le scraping de toutes les entreprises de cette analyse
                                 # Vérifier qu'une tâche de scraping n'est pas déjà en cours pour cette analyse
-                                if analysis_id:
+                                logger.info(f'Vérification du lancement du scraping: analysis_id={analysis_id}, scraping_launched={scraping_launched}')
+                                if not analysis_id:
+                                    logger.warning(f'analysis_id est None ou vide, impossible de lancer le scraping automatiquement')
+                                elif analysis_id:
+                                    logger.info(f'Lancement automatique du scraping pour analysis_id={analysis_id}')
                                     try:
                                         # Vérifier si une tâche de scraping est déjà en cours pour cette analyse
                                         scraping_already_started = False
@@ -180,11 +189,21 @@ def register_websocket_handlers(socketio, app):
                                                     break
                                         
                                         if scraping_already_started:
-                                            logger.debug(f'Scraping déjà en cours pour l\'analyse {analysis_id}, ignoré')
+                                            logger.info(f'Scraping déjà en cours pour l\'analyse {analysis_id}, ignoré')
                                             scraping_launched = True
-                                            break
+                                        else:
+                                            logger.info(f'Lancement de la tâche de scraping pour analysis_id={analysis_id}')
+                                            try:
+                                                scraping_task = scrape_analysis_task.delay(analysis_id=analysis_id)
+                                                logger.info(f'Tâche de scraping lancée avec task_id={scraping_task.id}')
+                                                scraping_launched = True
+                                            except Exception as scrape_error:
+                                                logger.error(
+                                                    f'Erreur lors du lancement du scraping: {scrape_error}',
+                                                    exc_info=True
+                                                )
+                                                raise
                                         
-                                        scraping_task = scrape_analysis_task.delay(analysis_id=analysis_id)
                                         with tasks_lock:
                                             active_tasks[session_id] = {
                                                 'task_id': scraping_task.id,
@@ -212,16 +231,17 @@ def register_websocket_handlers(socketio, app):
                                         db = Database()
                                         conn = db.get_connection()
                                         cursor = conn.cursor()
-                                        cursor.execute(
+                                        db.execute_sql(cursor,
                                             '''
-                                            SELECT COUNT(*) FROM entreprises
+                                            SELECT COUNT(*) as count FROM entreprises
                                             WHERE analyse_id = ?
                                               AND website IS NOT NULL
                                               AND TRIM(website) <> ''
                                             ''',
                                             (analysis_id,)
                                         )
-                                        total_entreprises_avec_site = cursor.fetchone()[0]
+                                        result = cursor.fetchone()
+                                        total_entreprises_avec_site = result['count'] if isinstance(result, dict) else result[0] if result else 0
                                         conn.close()
                                         
                                         if total_entreprises_avec_site > 0:
@@ -249,6 +269,10 @@ def register_websocket_handlers(socketio, app):
                                             nonlocal tech_tasks_to_monitor, tech_tasks_monitoring_started
                                             analysis_id_local = analysis_id_for_monitoring  # Utiliser la variable capturée
                                             try:
+                                                # Flag partagé: sert à éviter que certains monitorings (OSINT/Pentest)
+                                                # s'arrêtent trop tôt alors que le scraping continue encore et
+                                                # peut ajouter de nouvelles tâches à surveiller.
+                                                monitor_scraping.scraping_done = False
                                                 last_meta_scraping = None
                                                 while True:
                                                     try:
@@ -684,6 +708,9 @@ def register_websocket_handlers(socketio, app):
                                                                                 if total_pentest == 0:
                                                                                     break
                                                                                 
+                                                                                # Recalculer le nombre de tâches complétées à chaque itération
+                                                                                pentest_completed = sum(1 for status in pentest_status.values() if status.get('completed', False))
+                                                                                
                                                                                 total_progress_sum = 0
                                                                                 
                                                                                 for pentest_info in current_tasks:
@@ -708,6 +735,8 @@ def register_websocket_handlers(socketio, app):
                                                                                             total_progress_sum += progress_pentest
                                                                                             
                                                                                             if pentest_status[task_id]['last_progress'] != progress_pentest:
+                                                                                                # Recalculer le nombre de tâches complétées avant l'émission
+                                                                                                pentest_completed = sum(1 for tid, status in pentest_status.items() if status.get('completed', False))
                                                                                                 global_progress = int((total_progress_sum / total_pentest) if total_pentest > 0 else 0)
                                                                                                 safe_emit(
                                                                                                     socketio,
@@ -812,8 +841,15 @@ def register_websocket_handlers(socketio, app):
                                                                                         )
                                                                                         last_global_progress = global_progress
                                                                                 
+                                                                                # Important: ne pas s'arrêter tant que le scraping n'est pas terminé.
+                                                                                # Sinon, si la 1ere tâche Pentest finit vite, on sort avec un total=1,
+                                                                                # et les autres tâches (ajoutées après) ne seront jamais monitorées.
                                                                                 if pentest_completed >= total_pentest:
-                                                                                    break
+                                                                                    if getattr(monitor_scraping, 'scraping_done', False):
+                                                                                        break
+                                                                                    # Scraping toujours en cours: attendre, de nouvelles tâches peuvent arriver
+                                                                                    threading.Event().wait(0.5)
+                                                                                    continue
                                                                                 
                                                                                 threading.Event().wait(0.5)
                                                                             
@@ -833,6 +869,8 @@ def register_websocket_handlers(socketio, app):
                                                                 
                                                                 last_meta_scraping = meta_scraping
                                                         elif scraping_result.state == 'SUCCESS':
+                                                            # Le scraping est terminé: on peut autoriser les autres monitorings à finaliser proprement
+                                                            monitor_scraping.scraping_done = True
                                                             res = scraping_result.result or {}
                                                             stats = res.get('stats', {})
                                                             scraped_count = res.get('scraped_count', 0)
@@ -866,6 +904,8 @@ def register_websocket_handlers(socketio, app):
                                                                     del active_tasks[session_id]
                                                             break
                                                         elif scraping_result.state == 'FAILURE':
+                                                            # Même en échec, on marque le scraping comme terminé
+                                                            monitor_scraping.scraping_done = True
                                                             safe_emit(
                                                                 socketio,
                                                                 'scraping_error',
